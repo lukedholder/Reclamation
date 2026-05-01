@@ -1,0 +1,16 @@
+{
+    "name": "Reclamation.View",
+    "rootNamespace": "",
+    "references": [
+        "GUID:73efc934a77e9a14ea79821b7fac6dc6"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
