@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pandoc \"C:/dev/Reclamation/Docs/Space_Crusade_SDD.docx\" -o /dev/stdout -t markdown)",
+      "Bash(pandoc --version)",
+      "Bash(python -c ' *)"
+    ]
+  }
+}
