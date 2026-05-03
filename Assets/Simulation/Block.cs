@@ -1,9 +1,12 @@
-// A single placed block in the world. Just an ID and a position for now.
+// A single placed block in the world.
+// Position is in world space (any value, not snapped to a grid).
+// RotationY is in degrees around the vertical axis.
 
 public class Block
 {
-    public int Id;
-    public int X;
-    public int Y;
-    public int Z;
+    public int   Id;
+    public float X;
+    public float Y;
+    public float Z;
+    public float RotationY;
 }

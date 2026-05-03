@@ -1,6 +1,3 @@
-// The core simulation. GameManager creates one of these and calls Update
-// 20 times per second. All game logic will live in here, separate from Unity.
-
 using System.Collections.Generic;
 
 public class Simulation
@@ -11,19 +8,20 @@ public class Simulation
 
     private int _nextId = 1;
 
-    public void Update()    // 20Hz
+    public void Update()
     {
         Tick++;
     }
 
-    public Block PlaceBlock(int x, int y, int z)
+    public Block PlaceBlock(float x, float y, float z, float rotationY = 0f)
     {
         var block = new Block
         {
-            Id = _nextId++,
-            X  = x,
-            Y  = y,
-            Z  = z,
+            Id        = _nextId++,
+            X         = x,
+            Y         = y,
+            Z         = z,
+            RotationY = rotationY,
         };
 
         Blocks.Add(block);

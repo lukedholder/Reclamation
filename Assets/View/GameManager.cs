@@ -10,9 +10,6 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         _simulation = new Simulation();
-        _simulation.PlaceBlock(0, 0, 0);
-        _simulation.PlaceBlock(1, 0, 0);
-        _simulation.PlaceBlock(2, 0, 0);
     }
 
     private void Update()
@@ -23,6 +20,16 @@ public class GameManager : MonoBehaviour
         {
             _simulation.Update();
             _accumulator -= TickRate;
+        }
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+
+            if (Physics.Raycast(ray, out RaycastHit hit))
+            {
+                _simulation.PlaceBlock(hit.point.x, hit.point.y, hit.point.z);
+            }
         }
     }
 
