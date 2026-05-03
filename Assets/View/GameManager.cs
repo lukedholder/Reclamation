@@ -10,6 +10,9 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         _simulation = new Simulation();
+        _simulation.PlaceBlock(0, 0, 0);
+        _simulation.PlaceBlock(1, 0, 0);
+        _simulation.PlaceBlock(2, 0, 0);
     }
 
     private void Update()
@@ -25,6 +28,20 @@ public class GameManager : MonoBehaviour
 
     private void OnGUI()
     {
-        GUI.Label(new Rect(10, 10, 200, 20), $"Tick: {_simulation.Tick}");
+        GUI.Label(new Rect(10, 10, 200, 20),
+            $"Tick: {_simulation.Tick}   Blocks: {_simulation.Blocks.Count}");
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (_simulation == null) return;
+
+        Gizmos.color = Color.cyan;
+        foreach (var block in _simulation.Blocks)
+        {
+            Gizmos.DrawWireCube(
+                new Vector3(block.X, block.Y, block.Z),
+                Vector3.one);
+        }
     }
 }
