@@ -46,6 +46,17 @@ public class GameManager : MonoBehaviour
                 var block = _simulation.PlaceBlock(hit.point.x, hit.point.y, hit.point.z, _currentRotation);
                 SpawnBlockObject(block);
             }
+
+            if (Input.GetMouseButtonDown(1))
+            {
+                var hitObject = hit.collider.gameObject;
+                if (hitObject.name.StartsWith("Block_"))
+                {
+                    int id = int.Parse(hitObject.name.Replace("Block_", ""));
+                    _simulation.RemoveBlock(id);
+                    Destroy(hitObject);
+                }
+            }
         }
         else
         {

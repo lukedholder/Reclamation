@@ -27,4 +27,9 @@ public class Simulation
         Blocks.Add(block);
         return block;
     }
+
+    public bool RemoveBlock(int id)
+    {
+        return Blocks.RemoveAll(b => b.Id == id) > 0;
+    }
 }
