@@ -7,6 +7,7 @@ public class GameManager : MonoBehaviour
     private Simulation _simulation;
     private float      _accumulator;
     private GameObject _ghostBlock;
+    private float      _currentRotation;
 
     private const float TickRate = 1f / 20f;
 
@@ -30,16 +31,19 @@ public class GameManager : MonoBehaviour
             _accumulator -= TickRate;
         }
 
+        _currentRotation += Input.mouseScrollDelta.y * 15f;
+
         var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
             _ghostBlock.SetActive(true);
-            _ghostBlock.transform.position = new Vector3(hit.point.x, hit.point.y, hit.point.z);
+            _ghostBlock.transform.position = new Vector3(hit.point.x, hit.point.y + 0.5f, hit.point.z);
+            _ghostBlock.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
 
             if (Input.GetMouseButtonDown(0))
             {
-                var block = _simulation.PlaceBlock(hit.point.x, hit.point.y, hit.point.z);
+                var block = _simulation.PlaceBlock(hit.point.x, hit.point.y, hit.point.z, _currentRotation);
                 SpawnBlockObject(block);
             }
         }
@@ -53,7 +57,8 @@ public class GameManager : MonoBehaviour
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = $"Block_{block.Id}";
-        go.transform.position = new Vector3(block.X, block.Y, block.Z);
+        go.transform.position = new Vector3(block.X, block.Y + 0.5f, block.Z);
+        go.transform.rotation = Quaternion.Euler(0f, block.RotationY, 0f);
     }
 
     private void OnGUI()
