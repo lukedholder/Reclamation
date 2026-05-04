@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    [SerializeField] private Material _ghostMaterial;
+
     private Simulation _simulation;
     private float      _accumulator;
     private GameObject _ghostBlock;
@@ -14,8 +16,8 @@ public class GameManager : MonoBehaviour
 
         _ghostBlock = GameObject.CreatePrimitive(PrimitiveType.Cube);
         _ghostBlock.name = "GhostBlock";
-        _ghostBlock.GetComponent<Renderer>().material.color = new Color(0f, 1f, 0f, 0.4f);
         _ghostBlock.GetComponent<Collider>().enabled = false;
+        _ghostBlock.GetComponent<Renderer>().material = _ghostMaterial;
     }
 
     private void Update()
