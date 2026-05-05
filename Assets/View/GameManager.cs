@@ -9,7 +9,8 @@ public class GameManager : MonoBehaviour
     private GameObject _ghostBlock;
     private float      _currentRotation;
 
-    private const float TickRate = 1f / 20f;
+    private const float TickRate  = 1f / 20f;
+    private const float SnapSize  = 0.5f;
 
     private void Start()
     {
@@ -24,7 +25,6 @@ public class GameManager : MonoBehaviour
     private void Update()
     {
         _accumulator += Time.deltaTime;
-
         while (_accumulator >= TickRate)
         {
             _simulation.Update();
@@ -37,13 +37,28 @@ public class GameManager : MonoBehaviour
 
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
+            Vector3 position;
+
+            if (hit.collider.gameObject.name.StartsWith("Block_"))
+            {
+                // Hit an existing block — snap to its surface on the hit face
+                position = hit.collider.transform.position + hit.normal * SnapSize * 2f;
+            }
+            else
+            {
+                // Hit terrain — place freely
+                position = new Vector3(hit.point.x, hit.point.y + SnapSize, hit.point.z);
+            }
+
             _ghostBlock.SetActive(true);
-            _ghostBlock.transform.position = new Vector3(hit.point.x, hit.point.y + 0.5f, hit.point.z);
+            _ghostBlock.transform.position = position;
             _ghostBlock.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
 
             if (Input.GetMouseButtonDown(0))
             {
-                var block = _simulation.PlaceBlock(hit.point.x, hit.point.y, hit.point.z, 0f, _currentRotation, 0f);
+                var block = _simulation.PlaceBlock(
+                    position.x, position.y - SnapSize, position.z,
+                    0f, _currentRotation, 0f);
                 SpawnBlockObject(block);
             }
 
@@ -68,7 +83,7 @@ public class GameManager : MonoBehaviour
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = $"Block_{block.Id}";
-        go.transform.position = new Vector3(block.X, block.Y + 0.5f, block.Z);
+        go.transform.position = new Vector3(block.X, block.Y + SnapSize, block.Z);
         go.transform.rotation = Quaternion.Euler(block.RotationX, block.RotationY, block.RotationZ);
     }
 
