@@ -12,4 +12,5 @@ public class Block
     public float           RotationX;
     public float           RotationY;
     public float           RotationZ;
+    public int             ConstructId = -1;
 }

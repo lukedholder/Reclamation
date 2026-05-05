@@ -33,6 +33,10 @@ public class GameManager : MonoBehaviour
             _accumulator -= TickRate;
         }
 
+        if (Input.GetKeyDown(KeyCode.Alpha1)) _selectedDefinition = BlockCatalogue.SmallCube;
+        if (Input.GetKeyDown(KeyCode.Alpha2)) _selectedDefinition = BlockCatalogue.LargeCube;
+        if (Input.GetKeyDown(KeyCode.Alpha3)) _selectedDefinition = BlockCatalogue.Plank;
+
         _currentRotation += Input.mouseScrollDelta.y * 15f;
 
         var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -49,7 +53,28 @@ public class GameManager : MonoBehaviour
                 float hitHalf = GetHalfSizeForDef(hit.normal, hitBlock.Definition);
                 float newHalf = GetHalfSize(hit.normal);
 
-                position = hit.collider.transform.position + hit.normal * (hitHalf + newHalf);
+                float ax = Mathf.Abs(hit.normal.x);
+                float ay = Mathf.Abs(hit.normal.y);
+                float az = Mathf.Abs(hit.normal.z);
+
+                // Normal axis: use block center + combined half-extents (keeps faces flush).
+                // Face-plane axes: snap to the nearest position where the new block's face
+                // aligns with a cell boundary of the hit block.
+                if (ay > ax && ay > az)
+                    position = new Vector3(
+                        SnapFacePlane(hit.point.x, hitBlock.X, hitBlock.Definition.SizeX, _selectedDefinition.SizeX),
+                        hit.collider.transform.position.y + hit.normal.y * (hitHalf + newHalf),
+                        SnapFacePlane(hit.point.z, hitBlock.Z, hitBlock.Definition.SizeZ, _selectedDefinition.SizeZ));
+                else if (ax > az)
+                    position = new Vector3(
+                        hit.collider.transform.position.x + hit.normal.x * (hitHalf + newHalf),
+                        SnapFacePlane(hit.point.y, hitBlock.Y, hitBlock.Definition.SizeY, _selectedDefinition.SizeY),
+                        SnapFacePlane(hit.point.z, hitBlock.Z, hitBlock.Definition.SizeZ, _selectedDefinition.SizeZ));
+                else
+                    position = new Vector3(
+                        SnapFacePlane(hit.point.x, hitBlock.X, hitBlock.Definition.SizeX, _selectedDefinition.SizeX),
+                        SnapFacePlane(hit.point.y, hitBlock.Y, hitBlock.Definition.SizeY, _selectedDefinition.SizeY),
+                        hit.collider.transform.position.z + hit.normal.z * (hitHalf + newHalf));
             }
             else
             {
@@ -105,6 +130,16 @@ public class GameManager : MonoBehaviour
         go.transform.rotation = Quaternion.Euler(block.RotationX, block.RotationY, block.RotationZ);
     }
 
+    // Snap a cursor position (in the face plane) to the nearest valid center for the new block.
+    // "Valid" means the new block's face aligns with a cell boundary of the hit block.
+    // hitCenter/hitSize describe the hit block's axis; newSize is the new block's size on that axis.
+    private float SnapFacePlane(float cursor, float hitCenter, int hitSize, int newSize)
+    {
+        float hitLeft = hitCenter - hitSize * BlockSize * 0.5f; // hit block's near face on this axis
+        float newHalf = newSize   * BlockSize * 0.5f;           // new block's half-extent on this axis
+        return hitLeft + Mathf.Round((cursor - hitLeft - newHalf) / BlockSize) * BlockSize + newHalf;
+    }
+
     private float GetHalfSize(Vector3 normal)
     {
         return GetHalfSizeForDef(normal, _selectedDefinition);
@@ -123,7 +158,7 @@ public class GameManager : MonoBehaviour
 
     private void OnGUI()
     {
-        GUI.Label(new Rect(10, 10, 200, 20),
-            $"Tick: {_simulation.Tick}   Blocks: {_simulation.Blocks.Count}");
+        GUI.Label(new Rect(10, 10, 500, 20),
+            $"Tick: {_simulation.Tick}   Blocks: {_simulation.Blocks.Count}   Constructs: {_simulation.Constructs.Count}   [{_selectedDefinition.DisplayName}]");
     }
 }
