@@ -13,7 +13,7 @@ public class Simulation
         Tick++;
     }
 
-    public Block PlaceBlock(float x, float y, float z, float rotationY = 0f)
+    public Block PlaceBlock(float x, float y, float z, float rotX = 0f, float rotY = 0f, float rotZ = 0f)
     {
         var block = new Block
         {
@@ -21,7 +21,9 @@ public class Simulation
             X         = x,
             Y         = y,
             Z         = z,
-            RotationY = rotationY,
+            RotationX = rotX,
+            RotationY = rotY,
+            RotationZ = rotZ,
         };
 
         Blocks.Add(block);

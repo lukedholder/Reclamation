@@ -43,7 +43,7 @@ public class GameManager : MonoBehaviour
 
             if (Input.GetMouseButtonDown(0))
             {
-                var block = _simulation.PlaceBlock(hit.point.x, hit.point.y, hit.point.z, _currentRotation);
+                var block = _simulation.PlaceBlock(hit.point.x, hit.point.y, hit.point.z, 0f, _currentRotation, 0f);
                 SpawnBlockObject(block);
             }
 
@@ -69,7 +69,7 @@ public class GameManager : MonoBehaviour
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = $"Block_{block.Id}";
         go.transform.position = new Vector3(block.X, block.Y + 0.5f, block.Z);
-        go.transform.rotation = Quaternion.Euler(0f, block.RotationY, 0f);
+        go.transform.rotation = Quaternion.Euler(block.RotationX, block.RotationY, block.RotationZ);
     }
 
     private void OnGUI()
