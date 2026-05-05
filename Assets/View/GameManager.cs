@@ -8,9 +8,10 @@ public class GameManager : MonoBehaviour
     private float      _accumulator;
     private GameObject _ghostBlock;
     private float      _currentRotation;
+    private BlockDefinition _selectedDefinition = BlockCatalogue.SmallCube;
 
     private const float TickRate  = 1f / 20f;
-    private const float SnapSize  = 0.5f;
+    private const float BlockSize  = 0.5f;
 
     private void Start()
     {
@@ -18,6 +19,7 @@ public class GameManager : MonoBehaviour
 
         _ghostBlock = GameObject.CreatePrimitive(PrimitiveType.Cube);
         _ghostBlock.name = "GhostBlock";
+        _ghostBlock.transform.localScale = Vector3.one * BlockSize;
         _ghostBlock.GetComponent<Collider>().enabled = false;
         _ghostBlock.GetComponent<Renderer>().material = _ghostMaterial;
     }
@@ -41,23 +43,35 @@ public class GameManager : MonoBehaviour
 
             if (hit.collider.gameObject.name.StartsWith("Block_"))
             {
-                // Hit an existing block — snap to its surface on the hit face
-                position = hit.collider.transform.position + hit.normal * SnapSize * 2f;
+                int id       = int.Parse(hit.collider.gameObject.name.Replace("Block_", ""));
+                var hitBlock = _simulation.Blocks.Find(b => b.Id == id);
+
+                float hitHalf = GetHalfSizeForDef(hit.normal, hitBlock.Definition);
+                float newHalf = GetHalfSize(hit.normal);
+
+                position = hit.collider.transform.position + hit.normal * (hitHalf + newHalf);
             }
             else
             {
-                // Hit terrain — place freely
-                position = new Vector3(hit.point.x, hit.point.y + SnapSize, hit.point.z);
+                position = new Vector3(
+                        hit.point.x,
+                        hit.point.y + _selectedDefinition.SizeY * BlockSize * 0.5f,
+                        hit.point.z);
             }
 
             _ghostBlock.SetActive(true);
+            _ghostBlock.transform.localScale = new Vector3(
+                _selectedDefinition.SizeX * BlockSize,
+                _selectedDefinition.SizeY * BlockSize,
+                _selectedDefinition.SizeZ * BlockSize);
             _ghostBlock.transform.position = position;
             _ghostBlock.transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
 
             if (Input.GetMouseButtonDown(0))
             {
                 var block = _simulation.PlaceBlock(
-                    position.x, position.y - SnapSize, position.z,
+                    _selectedDefinition,
+                    position.x, position.y, position.z,
                     0f, _currentRotation, 0f);
                 SpawnBlockObject(block);
             }
@@ -83,8 +97,28 @@ public class GameManager : MonoBehaviour
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = $"Block_{block.Id}";
-        go.transform.position = new Vector3(block.X, block.Y + SnapSize, block.Z);
+        go.transform.localScale = new Vector3(
+            block.Definition.SizeX * BlockSize,
+            block.Definition.SizeY * BlockSize,
+            block.Definition.SizeZ * BlockSize);
+        go.transform.position = new Vector3(block.X, block.Y, block.Z);
         go.transform.rotation = Quaternion.Euler(block.RotationX, block.RotationY, block.RotationZ);
+    }
+
+    private float GetHalfSize(Vector3 normal)
+    {
+        return GetHalfSizeForDef(normal, _selectedDefinition);
+    }
+
+    private float GetHalfSizeForDef(Vector3 normal, BlockDefinition def)
+    {
+        float ax = Mathf.Abs(normal.x);
+        float ay = Mathf.Abs(normal.y);
+        float az = Mathf.Abs(normal.z);
+
+        if (ay > ax && ay > az) return def.SizeY * BlockSize * 0.5f;
+        if (ax > az)            return def.SizeX * BlockSize * 0.5f;
+        return                         def.SizeZ * BlockSize * 0.5f;
     }
 
     private void OnGUI()
