@@ -521,6 +521,62 @@ classDiagram
 
 ---
 
+## 7 — Machine System
+
+```mermaid
+classDiagram
+    class BaseMachine {
+        <<abstract>>
+        #Block _block
+        #MachineState State
+        +SetRecipe(Recipe) bool
+        +Tick(float tickDelta)
+        #HasInputsForOneCycle() bool
+        #HasOutputSpace() bool
+        #ConsumeInputs()
+        #ProduceOutputs()
+    }
+
+    class MinerMachine {
+        +SetResourceNode(itemId, cycleTime, amount)
+        #HasInputsForOneCycle() bool
+        #ConsumeInputs()
+    }
+
+    class AssemblerMachine {
+    }
+
+    class FurnaceMachine {
+    }
+
+    class MachineSystem {
+        +const TickDelta = 0.05s
+        +Count int
+        +Register(Block)
+        +Unregister(int blockId)
+        +Get(int blockId) BaseMachine
+        +Get~T~(int blockId) T
+        +Tick()
+        -Dictionary~int_BaseMachine~ _machines
+    }
+
+    BaseMachine <|-- MinerMachine
+    BaseMachine <|-- AssemblerMachine
+    BaseMachine <|-- FurnaceMachine
+    MachineSystem "1" *-- "*" BaseMachine : owns
+    BaseMachine --> MachineState : reads and writes
+```
+
+**Key rules:**
+- `MachineSystem.Register(block)` is called by `Simulation.PlaceBlock()` — never manually.
+- Only `Miner`, `Assembler`, and `Furnace` functional types receive a machine instance. Structural/power/logistics blocks are ignored.
+- All machine state (`Mode`, `CycleProgress`, `InputBuffer`, `OutputBuffer`) lives on `Block.MachineState` so the view layer can read it without touching the machine object.
+- `CycleProgress` is normalised [0, 1]. Overshoot is carried over (`-= 1f`) so fast machines don't lose fractional time.
+- `SetRecipe()` in base validates `recipe.MachineType == block.Definition.FunctionalType`. Returns `false` on mismatch — wrong machine type silently rejects incompatible recipes.
+- `MinerMachine.SetResourceNode()` builds a synthetic recipe with empty `Inputs` list, reusing the base Tick loop without modification.
+
+---
+
 ## Confirmed Design Decisions
 
 | Decision | Detail |
@@ -546,3 +602,9 @@ classDiagram
 | **Simulation layer** | Pure C# — zero Unity dependencies. No `UnityEngine` imports, no MonoBehaviours, no Vector3. All Unity coupling lives in the view layer only. |
 | **Rotation — grid constructs** | 90° increments around Y-axis only (RotationSteps 0–3). |
 | **Rotation — vehicles/freeform** | Continuous any-angle rotation (not yet implemented). |
+| **Machine base class** | Abstract `BaseMachine` (pure C#). Template method pattern: `Tick()` in base, virtual `HasInputsForOneCycle`, `ConsumeInputs`, `ProduceOutputs` overridden per machine type. |
+| **Machine state ownership** | All state (`Mode`, `CycleProgress`, `InputBuffer`, `OutputBuffer`) lives on `Block.MachineState`, not on the machine object. Machine objects are stateless logic carriers. |
+| **Miner synthetic recipe** | `MinerMachine.SetResourceNode()` constructs a `Recipe` with empty `Inputs` so the base `Tick()` loop runs unmodified. `HasInputsForOneCycle()` is overridden to always return true. |
+| **CycleProgress normalisation** | `[0, 1]` float. Resets via `-= 1f` (not `= 0f`) to carry over overshoot at high speed. |
+| **Machine registration** | `Simulation.PlaceBlock()` calls `MachineSystem.Register(block)`. `Simulation.RemoveBlock()` calls `MachineSystem.Unregister(blockId)`. No self-registration in constructors. |
+| **FunctionalType: Furnace** | Added to enum. Smelting recipes use `FunctionalType.Furnace`; they are rejected by Assembler and vice versa. |

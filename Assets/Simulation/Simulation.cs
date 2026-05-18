@@ -16,6 +16,7 @@ public class Simulation
 
     public readonly BlockTable     Blocks     = new BlockTable();
     public readonly ConstructTable Constructs = new ConstructTable();
+    public readonly MachineSystem  Machines   = new MachineSystem();
 
     private int _nextBlockId     = 1;
     private int _nextConstructId = 1;
@@ -23,6 +24,7 @@ public class Simulation
     public void Update()
     {
         Tick++;
+        Machines.Tick();
     }
 
     // Creates an empty construct and registers it. Called before placing the first block.
@@ -51,6 +53,7 @@ public class Simulation
 
         Blocks.ById[block.Id] = block;
         IndexBlockToConstruct(block.Id, constructId);
+        Machines.Register(block);
 
         var construct = Constructs.ById[constructId];
         construct.BlockIds.Add(block.Id);
@@ -78,6 +81,7 @@ public class Simulation
         var newConstructIds = new List<int>();
 
         if (!Blocks.ById.TryGetValue(blockId, out var block)) return newConstructIds;
+        Machines.Unregister(blockId);
 
         int constructId = block.ConstructId;
         var construct   = Constructs.ById[constructId];

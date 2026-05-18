@@ -10,6 +10,7 @@ public enum FunctionalType
     Foundation,    // Anchors a construct to terrain. Sets the local grid origin for the construct.
     Miner,         // Extracts a resource from a node beneath it. No input items; one output face.
     Assembler,     // Crafts items from inputs using a player-selected recipe.
+    Furnace,       // Smelts raw resources into refined materials. Typically 1-input 1-output.
     Storage,       // Passive item storage container. Inserters move items in and out.
     Generator,     // Burns fuel items to produce electrical power (kW).
     Battery,       // Stores electrical energy (kJ). Charges on surplus; discharges on deficit.
