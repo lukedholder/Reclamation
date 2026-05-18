@@ -1,7 +1,12 @@
-// The core simulation. Tracks all placed blocks and constructs.
-// When a block is placed, it either starts a new construct or joins/merges
-// existing ones. When removed, flood-fill checks if the remaining blocks
-// are still connected, splitting into separate constructs if not.
+// Core simulation. All positions are integer GridPos local to each construct.
+// No Unity dependencies — pure C#.
+//
+// Placement flow:
+//   Terrain click  → CreateConstruct() then PlaceBlock(def, constructId, GridPos.Zero, rot)
+//   Block-on-block → PlaceBlock(def, existingConstructId, computedGridPos, rot)
+//
+// RemoveBlock returns any new construct IDs produced by a connectivity split,
+// so the view layer can spawn ConstructView objects for them.
 
 using System.Collections.Generic;
 
@@ -9,101 +14,85 @@ public class Simulation
 {
     public int Tick { get; private set; }
 
-    public List<Block>     Blocks     = new List<Block>();
-    public List<Construct> Constructs = new List<Construct>();
+    public readonly BlockTable     Blocks     = new BlockTable();
+    public readonly ConstructTable Constructs = new ConstructTable();
 
     private int _nextBlockId     = 1;
     private int _nextConstructId = 1;
-
-    // How large one grid cell is in world units.
-    // Used when checking whether two blocks are touching.
-    private const float CellSize = 0.5f;
 
     public void Update()
     {
         Tick++;
     }
 
-    public Block PlaceBlock(BlockDefinition definition,
-                            float x, float y, float z,
-                            float rotX = 0f, float rotY = 0f, float rotZ = 0f)
+    // Creates an empty construct and registers it. Called before placing the first block.
+    public Construct CreateConstruct()
+    {
+        var c = new Construct { Id = _nextConstructId++ };
+        Constructs.ById[c.Id] = c;
+        return c;
+    }
+
+    // Places a block into an existing construct at a grid-space position.
+    // GridPos is the block's minimum corner (bottom-left-back) in the construct's local grid.
+    // Merges any other constructs the new block touches into the target construct.
+    // Returns the placed Block.
+    public Block PlaceBlock(BlockDefinition definition, int constructId, GridPos gridPos, int rotSteps = 0)
     {
         var block = new Block
         {
-            Id         = _nextBlockId++,
-            Definition = definition,
-            X          = x,
-            Y          = y,
-            Z          = z,
-            RotationX  = rotX,
-            RotationY  = rotY,
-            RotationZ  = rotZ,
+            Id           = _nextBlockId++,
+            Definition   = definition,
+            ConstructId  = constructId,
+            GridPosition = gridPos,
+            RotationSteps = rotSteps,
+            Durability   = definition.MaxDurability,
         };
 
-        Blocks.Add(block);
+        Blocks.ById[block.Id] = block;
+        IndexBlockToConstruct(block.Id, constructId);
 
-        // Find which constructs the new block is touching
-        var touchedIds = new HashSet<int>();
-        foreach (var other in Blocks)
+        var construct = Constructs.ById[constructId];
+        construct.BlockIds.Add(block.Id);
+
+        // Merge any separate constructs the new block is touching
+        var touchedConstructIds = new HashSet<int>();
+        foreach (var other in Blocks.ById.Values)
         {
             if (other.Id == block.Id) continue;
+            if (other.ConstructId == constructId) continue;
             if (AreAdjacent(block, other))
-                touchedIds.Add(other.ConstructId);
+                touchedConstructIds.Add(other.ConstructId);
         }
 
-        if (touchedIds.Count == 0)
-        {
-            // Not touching anything — start a new construct
-            var c = new Construct { Id = _nextConstructId++ };
-            c.BlockIds.Add(block.Id);
-            block.ConstructId = c.Id;
-            Constructs.Add(c);
-        }
-        else
-        {
-            // Touching one or more constructs — merge them all into one
-            int survivorId = -1;
-            foreach (var id in touchedIds) { survivorId = id; break; }
-            var survivor = Constructs.Find(c => c.Id == survivorId);
-
-            foreach (var id in touchedIds)
-            {
-                if (id == survivorId) continue;
-                var other = Constructs.Find(c => c.Id == id);
-                foreach (var bid in other.BlockIds)
-                {
-                    var b = Blocks.Find(bl => bl.Id == bid);
-                    b.ConstructId = survivorId;
-                    survivor.BlockIds.Add(bid);
-                }
-                Constructs.Remove(other);
-            }
-
-            block.ConstructId = survivorId;
-            survivor.BlockIds.Add(block.Id);
-        }
+        foreach (var otherId in touchedConstructIds)
+            MergeInto(survivorId: constructId, dissolvedId: otherId);
 
         return block;
     }
 
-    public bool RemoveBlock(int id)
+    // Removes a block. Returns IDs of any new constructs created by a split
+    // (empty if the construct was destroyed or remained connected).
+    public List<int> RemoveBlock(int blockId)
     {
-        var block = Blocks.Find(b => b.Id == id);
-        if (block == null) return false;
+        var newConstructIds = new List<int>();
 
-        var construct = Constructs.Find(c => c.Id == block.ConstructId);
+        if (!Blocks.ById.TryGetValue(blockId, out var block)) return newConstructIds;
 
-        Blocks.Remove(block);
-        construct.BlockIds.Remove(id);
+        int constructId = block.ConstructId;
+        var construct   = Constructs.ById[constructId];
+
+        Blocks.ById.Remove(blockId);
+        RemoveFromConstructIndex(blockId, constructId);
+        construct.BlockIds.Remove(blockId);
 
         if (construct.BlockIds.Count == 0)
         {
-            Constructs.Remove(construct);
-            return true;
+            Constructs.ById.Remove(constructId);
+            return newConstructIds;
         }
 
-        // Flood-fill to check if the remaining blocks are still connected.
-        // If removing this block split the construct, we get multiple components.
+        // Flood-fill to find connected components
         var remaining  = new HashSet<int>(construct.BlockIds);
         var components = new List<HashSet<int>>();
 
@@ -119,14 +108,14 @@ public class Simulation
 
             while (queue.Count > 0)
             {
-                var current      = queue.Dequeue();
-                var currentBlock = Blocks.Find(b => b.Id == current);
-                component.Add(current);
+                int cur      = queue.Dequeue();
+                var curBlock = Blocks.ById[cur];
+                component.Add(cur);
 
-                foreach (var other in Blocks)
+                foreach (var other in Blocks.ById.Values)
                 {
                     if (!remaining.Contains(other.Id)) continue;
-                    if (!AreAdjacent(currentBlock, other)) continue;
+                    if (!AreAdjacent(curBlock, other)) continue;
                     remaining.Remove(other.Id);
                     queue.Enqueue(other.Id);
                 }
@@ -139,48 +128,73 @@ public class Simulation
         // Each additional component becomes a new construct.
         for (int i = 1; i < components.Count; i++)
         {
-            var newConstruct = new Construct { Id = _nextConstructId++ };
+            var split = CreateConstruct();
+            newConstructIds.Add(split.Id);
+
             foreach (var bid in components[i])
             {
-                var b = Blocks.Find(bl => bl.Id == bid);
-                b.ConstructId = newConstruct.Id;
+                var b = Blocks.ById[bid];
+                RemoveFromConstructIndex(bid, constructId);
                 construct.BlockIds.Remove(bid);
-                newConstruct.BlockIds.Add(bid);
+
+                b.ConstructId = split.Id;
+                split.BlockIds.Add(bid);
+                IndexBlockToConstruct(bid, split.Id);
             }
-            Constructs.Add(newConstruct);
         }
 
-        return true;
+        return newConstructIds;
     }
 
-    // Two blocks are adjacent if their bounding boxes are touching —
-    // gap of ~0 in one axis and overlapping in the other two.
-    private bool AreAdjacent(Block a, Block b)
+    // Two blocks (minimum-corner GridPos, integer sizes) are face-adjacent when
+    // they share exactly one face: touching on one axis, overlapping on the other two.
+    private static bool AreAdjacent(Block a, Block b)
     {
-        const float epsilon = 0.01f;
+        GridPos ap = a.GridPosition;
+        GridPos bp = b.GridPosition;
+        int asx = a.Definition.SizeX, asy = a.Definition.SizeY, asz = a.Definition.SizeZ;
+        int bsx = b.Definition.SizeX, bsy = b.Definition.SizeY, bsz = b.Definition.SizeZ;
 
-        float aHX = a.Definition.SizeX * CellSize * 0.5f;
-        float aHY = a.Definition.SizeY * CellSize * 0.5f;
-        float aHZ = a.Definition.SizeZ * CellSize * 0.5f;
+        bool touchX = ap.X + asx == bp.X || bp.X + bsx == ap.X;
+        bool touchY = ap.Y + asy == bp.Y || bp.Y + bsy == ap.Y;
+        bool touchZ = ap.Z + asz == bp.Z || bp.Z + bsz == ap.Z;
 
-        float bHX = b.Definition.SizeX * CellSize * 0.5f;
-        float bHY = b.Definition.SizeY * CellSize * 0.5f;
-        float bHZ = b.Definition.SizeZ * CellSize * 0.5f;
+        bool overlapX = ap.X < bp.X + bsx && bp.X < ap.X + asx;
+        bool overlapY = ap.Y < bp.Y + bsy && bp.Y < ap.Y + asy;
+        bool overlapZ = ap.Z < bp.Z + bsz && bp.Z < ap.Z + asz;
 
-        float dx = System.Math.Abs(a.X - b.X) - (aHX + bHX);
-        float dy = System.Math.Abs(a.Y - b.Y) - (aHY + bHY);
-        float dz = System.Math.Abs(a.Z - b.Z) - (aHZ + bHZ);
+        return (touchX && overlapY && overlapZ)
+            || (touchY && overlapX && overlapZ)
+            || (touchZ && overlapX && overlapY);
+    }
 
-        bool touchX = dx > -epsilon && dx <= epsilon;
-        bool touchY = dy > -epsilon && dy <= epsilon;
-        bool touchZ = dz > -epsilon && dz <= epsilon;
+    private void MergeInto(int survivorId, int dissolvedId)
+    {
+        var survivor = Constructs.ById[survivorId];
+        var dissolved = Constructs.ById[dissolvedId];
 
-        bool gapX = dx < epsilon;
-        bool gapY = dy < epsilon;
-        bool gapZ = dz < epsilon;
+        foreach (var bid in dissolved.BlockIds)
+        {
+            var b = Blocks.ById[bid];
+            b.ConstructId = survivorId;
+            survivor.BlockIds.Add(bid);
+            RemoveFromConstructIndex(bid, dissolvedId);
+            IndexBlockToConstruct(bid, survivorId);
+        }
 
-        return (touchX && gapY && gapZ)
-            || (touchY && gapX && gapZ)
-            || (touchZ && gapX && gapY);
+        Constructs.ById.Remove(dissolvedId);
+    }
+
+    private void IndexBlockToConstruct(int blockId, int constructId)
+    {
+        if (!Blocks.ByConstruct.ContainsKey(constructId))
+            Blocks.ByConstruct[constructId] = new List<int>();
+        Blocks.ByConstruct[constructId].Add(blockId);
+    }
+
+    private void RemoveFromConstructIndex(int blockId, int constructId)
+    {
+        if (Blocks.ByConstruct.TryGetValue(constructId, out var list))
+            list.Remove(blockId);
     }
 }

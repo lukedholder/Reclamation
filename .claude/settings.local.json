@@ -4,7 +4,14 @@
       "Bash(pandoc \"C:/dev/Reclamation/Docs/Space_Crusade_SDD.docx\" -o /dev/stdout -t markdown)",
       "Bash(pandoc --version)",
       "Bash(python -c ' *)",
-      "Bash(pandoc --track-changes=all \"docs/Space_Crusade_Design_Vol1.docx\" -o \"docs/Vol1.md\")"
+      "Bash(pandoc --track-changes=all \"docs/Space_Crusade_Design_Vol1.docx\" -o \"docs/Vol1.md\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(gh api *)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:github.com)",
+      "Read(//c/dev//**)",
+      "Read(//c/Users/luked/**)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

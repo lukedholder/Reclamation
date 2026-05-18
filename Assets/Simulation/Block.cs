@@ -1,16 +1,36 @@
-// A single placed block in the world.
-// Position is in world space. Rotation is Euler angles in degrees.
-// Definition describes what type of block this is.
+// A single placed block instance in the world.
+// Position is stored as GridPos (integer, construct-local) — not world-space floats.
+// World center = constructOrigin + GridPosition * CellSize + Size * CellSize * 0.5
 
 public class Block
 {
-    public int             Id;
+    // --- Identity ---
+
+    public int Id;
     public BlockDefinition Definition;
-    public float           X;
-    public float           Y;
-    public float           Z;
-    public float           RotationX;
-    public float           RotationY;
-    public float           RotationZ;
-    public int             ConstructId = -1;
+
+    // --- Membership ---
+
+    // -1 if unassigned (should not persist after placement)
+    public int ConstructId      = -1;
+    public int PowerNetworkId   = -1;
+    public int LogisticsNetworkId = -1;
+
+    // --- Position ---
+
+    // Minimum corner of the block in the construct's local grid (bottom-left-back).
+    public GridPos GridPosition;
+
+    // 0–3, each step is 90° around Y-axis.
+    public int RotationSteps;
+
+    // --- Health ---
+
+    public int Durability;
+
+    // --- Runtime State (null if block doesn't have this function) ---
+
+    public MachineState  MachineState;
+    public GeneratorState GeneratorState;
+    public BatteryState  BatteryState;
 }
