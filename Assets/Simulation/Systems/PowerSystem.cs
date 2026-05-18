@@ -131,11 +131,28 @@ public class PowerSystem
                 supply += b.GeneratorState.CurrentOutputKW;
         network.TotalSupplyKW = supply;
 
-        // 2. Sum demand
+        // 2. Sum demand, scaling by machine mode where applicable.
+        //    OperationMode drives effective draw (matches Vol2 §4.1):
+        //      Idle / NoPower → 0 kW   (no recipe set, or grid dead last tick)
+        //      Waiting        → 25 %   (stalled: inputs missing or output full)
+        //      Operating      → 100 %  (actively producing)
+        //    Blocks without a MachineState (future turrets, lights, etc.) always draw 100%.
         float demand = 0f;
         foreach (var id in network.ConsumerIds)
-            if (blocks.ById.TryGetValue(id, out var b))
-                demand += b.Definition.PowerDrawKW;
+        {
+            if (!blocks.ById.TryGetValue(id, out var b)) continue;
+            float drawKW = b.Definition.PowerDrawKW;
+            var mode = b.MachineState?.Mode;
+            if (mode.HasValue)
+                drawKW = mode.Value switch
+                {
+                    OperationMode.Idle    => 0f,
+                    OperationMode.NoPower => 0f,
+                    OperationMode.Waiting => drawKW * 0.25f,
+                    _                     => drawKW,   // Operating
+                };
+            demand += drawKW;
+        }
         network.TotalDemandKW = demand;
 
         // 3. Balance

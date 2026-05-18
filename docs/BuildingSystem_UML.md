@@ -633,7 +633,7 @@ classDiagram
     class LogisticsSystem {
         +Count int
         +Belts IReadOnlyDictionary
-        +Connect(srcBlockId, srcSlot, dstBlockId, dstSlot, throughput) BeltSegment
+        +Connect(srcBlockId, srcPort, dstBlockId, dstPort, lengthInCells, throughput) BeltSegment
         +Disconnect(beltId)
         +DisconnectBlock(blockId)
         +Tick(tickDelta, BlockTable)
@@ -643,22 +643,43 @@ classDiagram
     class BeltSegment {
         +int Id
         +int SourceBlockId
-        +int SourceSlotIndex
+        +int SourcePortIndex
         +int DestBlockId
-        +int DestSlotIndex
+        +int DestPortIndex
         +float ThroughputPerMin
-        +float ItemProgress
-        +Tick(tickDelta, BlockTable) bool
-        -TryTransfer(BlockTable) bool
+        +int LengthInCells
+        +string[] Slots
+        +int ItemCount
+        +float StepProgress
+        +Init()
+        +Tick(tickDelta, BlockTable)
+        -Step(BlockTable)
+        -TryDeliver(BlockTable, string) bool
+        -TryPull(BlockTable)
     }
 
     LogisticsSystem "1" *-- "*" BeltSegment
 ```
 
+**Physical model (shift register):**
+- The belt has `LengthInCells` item slots (`string[]`), one per 0.5 m cell. `null` = empty.
+- `Slot[0]` = entry (source side). `Slot[LengthInCells-1]` = exit (dest side).
+- Items advance together by one slot on each belt step — not individually.
+- An item that cannot advance (blocked exit) stalls in place; items behind it also stall, backing the belt up naturally.
+- Transit time for an item on an empty belt = `LengthInCells` steps.
+
+**Step order (per belt step):**
+1. Try to deliver exit slot to destination machine input buffer (`TryDeliver`). Clears the slot on success.
+2. Advance items toward the exit, exit-side first so nothing moves twice (`Slots[i+1] = Slots[i]` when ahead is empty).
+3. Pull one item from source machine output buffer into the entry slot if it is empty (`TryPull`).
+
+**Timing:** `StepProgress += ThroughputPerMin / 60f * tickDelta`. One step fires each time it crosses 1.0.
+At 60 items/min (Mk1 belt) and 20 Hz ticks: one step every 20 ticks (1 second).
+
 **Key rules:**
-- `Machines.Tick()` runs before `Logistics.Tick()` each step — machines produce outputs first, belts move them second.
-- Throughput uses the same accumulator pattern as machine `CycleProgress`: `ItemProgress += throughput/60 * tickDelta`. One item transfers each time it crosses 1.0.
-- If a transfer is blocked (source empty, dest full, item type mismatch), `ItemProgress` is capped at 1.0 and retried next tick. Throughput is not wasted on failed transfers.
+- `Machines.Tick()` runs before `Logistics.Tick()` each step — machines produce outputs first, belts pull from them second.
+- `SourcePortIndex` / `DestPortIndex` are `PortDefinition.Index` values on the respective blocks, which map 1:1 to `OutputBuffer` / `InputBuffer` slot indices.
+- `LengthInCells = floor(splineArcLength / CellSize)` — NOT the straight-line grid distance. The view layer computes arc length from the belt spline and passes it to `Connect()`.
 - `LogisticsSystem.DisconnectBlock(id)` is called by `Simulation.RemoveBlock()` before the block is deleted, ensuring no dangling belt references.
 - Belt segments are direct connections for V1 (no belt blocks in the world yet). When belt blocks are added, each placed belt creates a `BeltSegment` here.
 
@@ -698,12 +719,13 @@ classDiagram
 | **Recipe — pure C# not ScriptableObject** | `Recipe` lives in the simulation layer (pure C#). ScriptableObject would import Unity and break sim isolation. Future designer editing uses a `RecipeAsset` ScriptableObject in the view layer that converts to `Recipe` at startup. |
 | **RecipeCatalogue** | Static class of shared immutable `Recipe` instances, same pattern as `BlockCatalogue`. Never mutated at runtime. |
 | **Miner recipes** | Not stored in `RecipeCatalogue`. `MinerMachine.SetResourceNode()` constructs a synthetic `Recipe` at runtime from the node's item/rate/amount. |
-| **Belt throughput** | Mk1 conveyor: 60 items/min. Uses progress accumulator (`ItemProgress += throughput/60 * tickDelta`) — same pattern as machine `CycleProgress`. No item-in-transit objects. |
-| **Belt stall behaviour** | If a transfer is blocked, `ItemProgress` is capped at 1.0 (not allowed to accumulate further). Retried next tick without wasting throughput. |
+| **Belt throughput** | Mk1 conveyor: 60 items/min. `StepProgress += throughput/60 * tickDelta`; one belt step fires per crossing of 1.0. Each step shifts the entire shift-register by one slot. |
+| **Belt stall behaviour** | Exit slot blocked → item stays in place; items behind it stall naturally (no special cap needed — the shift only moves items into empty slots ahead). Throughput is not wasted because no phantom items are generated. |
 | **Tick order** | `MachineSystem.Tick()` → `LogisticsSystem.Tick()`. Machines produce first, belts distribute second within the same simulation step. |
 | **Power network per construct** | `CreateConstruct()` does not auto-create a network. `PowerSystem.Register(block)` calls `GetOrCreateNetworkId()` which lazily creates the first network for the construct on demand. |
 | **Multiple networks per construct** | Supported in the table (`ByConstruct` maps to a list). Pole wiring will split/merge networks when implemented. For V1, all blocks in a construct share one network. |
-| **Consumer throttling** | `OperatingRate = effectiveSupply / demand`. Written to `MachineState.OperatingRate` on all consumers. MachineSystem reads this when advancing `CycleProgress`. Turret priority (turrets always full power before others throttled) is a future addition. |
+| **Waiting-state power draw** | Machines in `Waiting` mode draw **25% of their operating power** (Vol2 §4.1: *"Power continues to be drawn at idle rate while stalled"*). `PowerSystem` reads `MachineState.Mode` each tick: `Idle`/`NoPower` → 0 kW, `Waiting` → `PowerDrawKW * 0.25f`, `Operating` → `PowerDrawKW`. Blocks without a `MachineState` (future turrets, lights) always draw 100%. |
+| **Consumer throttling** | `OperatingRate = effectiveSupply / demand` (where demand already reflects per-machine mode scaling). Written to `MachineState.OperatingRate` on all consumers. MachineSystem reads this when advancing `CycleProgress`. Turret priority (turrets always full power before others throttled) is a future addition. |
 | **Tick order** | Power → Machines → Logistics. Power sets rates first so machines see the correct throttle in the same tick. |
 | **Belt V1 scope** | Belt segments are logical connections (no belt blocks in the world). `LogisticsSystem.Connect()` wires two machine slots directly. Belt block placement comes later. |
 | **Port definitions** | Each `BlockDefinition` carries a `PortDefinition[]`. Each port has `Index` (maps 1:1 to buffer slot), `Type` (Input/Output), and `Face` (which block face the spline attaches to in the view layer). |

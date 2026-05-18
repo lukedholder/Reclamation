@@ -26,12 +26,14 @@ public class GameManager : MonoBehaviour
 
     // ── Debug scenario ────────────────────────────────────────────────────────
     // Power setup: 3× SteamGenerator (360 kW) + 1× SmallBattery (500 kJ, 100 kW discharge)
-    // Consumer demand: Miner (90) + Furnace (180) + Assembler (150) = 420 kW
+    // Consumer demand (Operating): Miner (30) + Furnace (60) + Assembler (75) = 165 kW
+    // Consumer demand (Waiting):   same machines at 25% = 7.5 + 15 + 18.75 = 41.25 kW
     //
-    // Balance: 360 kW supply, 420 kW demand → 60 kW deficit
-    //   Battery covers the 60 kW gap → BatteryAssist, all machines at 100% speed
-    //   Battery depletes in ~500 kJ / (60 kW × 0.05s) ≈ 167 s at 20 Hz
-    //   After depletion: Deficit, OperatingRate = 360/420 ≈ 85.7%
+    // Balance at full production: 360 kW supply − 165 kW demand = +195 kW surplus → Nominal
+    //   Surplus charges battery at 50 kW (MaxChargeRateKW); machines run at 100%.
+    //   To exercise BatteryAssist/Deficit: swap to 1× SteamGenerator (120 kW supply,
+    //   45 kW deficit covered by battery → BatteryAssist, depletes in ~222 s at 20 Hz,
+    //   then Deficit at OperatingRate ≈ 72.7%).
 
     private void RunDebugScenario()
     {
