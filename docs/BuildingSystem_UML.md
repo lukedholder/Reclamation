@@ -577,6 +577,44 @@ classDiagram
 
 ---
 
+## 8 — Logistics System
+
+```mermaid
+classDiagram
+    class LogisticsSystem {
+        +Count int
+        +Belts IReadOnlyDictionary
+        +Connect(srcBlockId, srcSlot, dstBlockId, dstSlot, throughput) BeltSegment
+        +Disconnect(beltId)
+        +DisconnectBlock(blockId)
+        +Tick(tickDelta, BlockTable)
+        -Dictionary~int_BeltSegment~ _belts
+    }
+
+    class BeltSegment {
+        +int Id
+        +int SourceBlockId
+        +int SourceSlotIndex
+        +int DestBlockId
+        +int DestSlotIndex
+        +float ThroughputPerMin
+        +float ItemProgress
+        +Tick(tickDelta, BlockTable) bool
+        -TryTransfer(BlockTable) bool
+    }
+
+    LogisticsSystem "1" *-- "*" BeltSegment
+```
+
+**Key rules:**
+- `Machines.Tick()` runs before `Logistics.Tick()` each step — machines produce outputs first, belts move them second.
+- Throughput uses the same accumulator pattern as machine `CycleProgress`: `ItemProgress += throughput/60 * tickDelta`. One item transfers each time it crosses 1.0.
+- If a transfer is blocked (source empty, dest full, item type mismatch), `ItemProgress` is capped at 1.0 and retried next tick. Throughput is not wasted on failed transfers.
+- `LogisticsSystem.DisconnectBlock(id)` is called by `Simulation.RemoveBlock()` before the block is deleted, ensuring no dangling belt references.
+- Belt segments are direct connections for V1 (no belt blocks in the world yet). When belt blocks are added, each placed belt creates a `BeltSegment` here.
+
+---
+
 ## Confirmed Design Decisions
 
 | Decision | Detail |
@@ -611,3 +649,11 @@ classDiagram
 | **Recipe — pure C# not ScriptableObject** | `Recipe` lives in the simulation layer (pure C#). ScriptableObject would import Unity and break sim isolation. Future designer editing uses a `RecipeAsset` ScriptableObject in the view layer that converts to `Recipe` at startup. |
 | **RecipeCatalogue** | Static class of shared immutable `Recipe` instances, same pattern as `BlockCatalogue`. Never mutated at runtime. |
 | **Miner recipes** | Not stored in `RecipeCatalogue`. `MinerMachine.SetResourceNode()` constructs a synthetic `Recipe` at runtime from the node's item/rate/amount. |
+| **Belt throughput** | Mk1 conveyor: 60 items/min. Uses progress accumulator (`ItemProgress += throughput/60 * tickDelta`) — same pattern as machine `CycleProgress`. No item-in-transit objects. |
+| **Belt stall behaviour** | If a transfer is blocked, `ItemProgress` is capped at 1.0 (not allowed to accumulate further). Retried next tick without wasting throughput. |
+| **Tick order** | `MachineSystem.Tick()` → `LogisticsSystem.Tick()`. Machines produce first, belts distribute second within the same simulation step. |
+| **Belt V1 scope** | Belt segments are logical connections (no belt blocks in the world). `LogisticsSystem.Connect()` wires two machine slots directly. Belt block placement comes later. |
+| **Port definitions** | Each `BlockDefinition` carries a `PortDefinition[]`. Each port has `Index` (maps 1:1 to buffer slot), `Type` (Input/Output), and `Face` (which block face the spline attaches to in the view layer). |
+| **Belt length source** | `LengthInCells = floor(splineArcLength / CellSize)`. NOT the straight-line grid distance between machines. The view layer computes arc length from the spline fitted through port anchors and belt-stand waypoints, then passes it to `LogisticsSystem.Connect()`. |
+| **Belt stands** | Future waypoint blocks. Placed freely (not grid-constrained); act as intermediate spline anchors for routing belts around obstacles. Each stand has one input port and one output port. |
+| **Belt grid rule** | Belts are NOT grid-constrained. They follow splines between port anchor points. Only machines and blocks snap to the integer grid. |

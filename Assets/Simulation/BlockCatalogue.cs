@@ -168,6 +168,10 @@ public static class BlockCatalogue
             ResourceTypes        = new[] { "iron_ore", "copper_ore", "coal" },
             OutputFace           = FaceDir.NegY,
         },
+        Ports = new[]
+        {
+            new PortDefinition { Index = 0, Type = PortType.Output, Face = FaceDir.PosZ },
+        },
     };
 
     public static readonly BlockDefinition ElectricFurnace = new BlockDefinition
@@ -185,6 +189,11 @@ public static class BlockCatalogue
         PowerInterface   = PowerInterface.Node,
         ConstructionCost = new[] { new ItemStack("iron_plate", 8), new ItemStack("circuit_board", 2) },
         Params           = null, // no special params — recipe drives behaviour
+        Ports = new[]
+        {
+            new PortDefinition { Index = 0, Type = PortType.Input,  Face = FaceDir.NegZ },
+            new PortDefinition { Index = 0, Type = PortType.Output, Face = FaceDir.PosZ },
+        },
     };
 
     public static readonly BlockDefinition AssemblerMk1 = new BlockDefinition
@@ -205,6 +214,15 @@ public static class BlockCatalogue
         {
             SpeedMultiplier          = 1f,
             AllowedRecipeCategories  = new[] { "basic" },
+        },
+        // Three input ports on left, back, and right faces; one output port on front.
+        // Supports up to 3-ingredient recipes. Unused ports stay disconnected.
+        Ports = new[]
+        {
+            new PortDefinition { Index = 0, Type = PortType.Input,  Face = FaceDir.NegX },
+            new PortDefinition { Index = 1, Type = PortType.Input,  Face = FaceDir.NegZ },
+            new PortDefinition { Index = 2, Type = PortType.Input,  Face = FaceDir.PosX },
+            new PortDefinition { Index = 0, Type = PortType.Output, Face = FaceDir.PosZ },
         },
     };
 }

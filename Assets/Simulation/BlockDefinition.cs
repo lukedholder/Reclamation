@@ -73,6 +73,15 @@ public class BlockDefinition
     public ItemStack[] ConstructionCost;
 
 
+    // --- Logistics Ports ---
+
+    // All logistics connection points on this block.
+    // Indexed by PortDefinition.Index. Input ports map to InputBuffer slots;
+    // output ports map to OutputBuffer slots.
+    // Empty for blocks with no logistics role (structural, power-only, etc.).
+    public PortDefinition[] Ports = System.Array.Empty<PortDefinition>();
+
+
     // --- Functional Parameters ---
 
     // Type-specific configuration data. Cast to the appropriate subclass based on FunctionalType:
