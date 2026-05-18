@@ -608,3 +608,6 @@ classDiagram
 | **CycleProgress normalisation** | `[0, 1]` float. Resets via `-= 1f` (not `= 0f`) to carry over overshoot at high speed. |
 | **Machine registration** | `Simulation.PlaceBlock()` calls `MachineSystem.Register(block)`. `Simulation.RemoveBlock()` calls `MachineSystem.Unregister(blockId)`. No self-registration in constructors. |
 | **FunctionalType: Furnace** | Added to enum. Smelting recipes use `FunctionalType.Furnace`; they are rejected by Assembler and vice versa. |
+| **Recipe — pure C# not ScriptableObject** | `Recipe` lives in the simulation layer (pure C#). ScriptableObject would import Unity and break sim isolation. Future designer editing uses a `RecipeAsset` ScriptableObject in the view layer that converts to `Recipe` at startup. |
+| **RecipeCatalogue** | Static class of shared immutable `Recipe` instances, same pattern as `BlockCatalogue`. Never mutated at runtime. |
+| **Miner recipes** | Not stored in `RecipeCatalogue`. `MinerMachine.SetResourceNode()` constructs a synthetic `Recipe` at runtime from the node's item/rate/amount. |

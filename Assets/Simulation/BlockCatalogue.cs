@@ -145,4 +145,66 @@ public static class BlockCatalogue
             MaxConnections = 4,
         },
     };
+
+    // --- V1 Production Blocks ---
+
+    public static readonly BlockDefinition BasicMiner = new BlockDefinition
+    {
+        Id               = "basic_miner",
+        DisplayName      = "Basic Miner",
+        Category         = BlockCategory.Production,
+        FunctionalType   = FunctionalType.Miner,
+        TierRequired     = 0,
+        SizeX            = 2, SizeY = 2, SizeZ = 2,
+        MaxDurability    = 250,
+        Mass             = 60f,
+        PowerDrawKW      = 90f,
+        PowerOutputKW    = 0f,
+        PowerInterface   = PowerInterface.Node,
+        ConstructionCost = new[] { new ItemStack("iron_plate", 6), new ItemStack("iron_gear", 4) },
+        Params           = new MinerParams
+        {
+            ExtractRatePerSecond = 1f,
+            ResourceTypes        = new[] { "iron_ore", "copper_ore", "coal" },
+            OutputFace           = FaceDir.NegY,
+        },
+    };
+
+    public static readonly BlockDefinition ElectricFurnace = new BlockDefinition
+    {
+        Id               = "electric_furnace",
+        DisplayName      = "Electric Furnace",
+        Category         = BlockCategory.Production,
+        FunctionalType   = FunctionalType.Furnace,
+        TierRequired     = 0,
+        SizeX            = 2, SizeY = 2, SizeZ = 2,
+        MaxDurability    = 300,
+        Mass             = 80f,
+        PowerDrawKW      = 180f,
+        PowerOutputKW    = 0f,
+        PowerInterface   = PowerInterface.Node,
+        ConstructionCost = new[] { new ItemStack("iron_plate", 8), new ItemStack("circuit_board", 2) },
+        Params           = null, // no special params — recipe drives behaviour
+    };
+
+    public static readonly BlockDefinition AssemblerMk1 = new BlockDefinition
+    {
+        Id               = "assembler_mk1",
+        DisplayName      = "Assembler Mk1",
+        Category         = BlockCategory.Production,
+        FunctionalType   = FunctionalType.Assembler,
+        TierRequired     = 0,
+        SizeX            = 3, SizeY = 2, SizeZ = 3,
+        MaxDurability    = 300,
+        Mass             = 100f,
+        PowerDrawKW      = 150f,
+        PowerOutputKW    = 0f,
+        PowerInterface   = PowerInterface.Node,
+        ConstructionCost = new[] { new ItemStack("iron_plate", 9), new ItemStack("iron_gear", 5), new ItemStack("circuit_board", 3) },
+        Params           = new AssemblerParams
+        {
+            SpeedMultiplier          = 1f,
+            AllowedRecipeCategories  = new[] { "basic" },
+        },
+    };
 }
