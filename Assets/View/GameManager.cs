@@ -25,40 +25,43 @@ public class GameManager : MonoBehaviour
     }
 
     // ── Debug scenario ────────────────────────────────────────────────────────
-    // Chain: Miner → Belt(6 slots) → Furnace → Belt(4 slots) → Assembler
+    // Power setup: 3× SteamGenerator (360 kW) + 1× SmallBattery (500 kJ, 100 kW discharge)
+    // Consumer demand: Miner (90) + Furnace (180) + Assembler (150) = 420 kW
     //
-    // Belt lengths here are stand-ins for what the view layer would compute
-    // from the spline arc length (floor(arcLength / CellSize)).
-    // In the final game the view layer calls Connect() after routing the spline.
+    // Balance: 360 kW supply, 420 kW demand → 60 kW deficit
+    //   Battery covers the 60 kW gap → BatteryAssist, all machines at 100% speed
+    //   Battery depletes in ~500 kJ / (60 kW × 0.05s) ≈ 167 s at 20 Hz
+    //   After depletion: Deficit, OperatingRate = 360/420 ≈ 85.7%
 
     private void RunDebugScenario()
     {
         var construct = _simulation.CreateConstruct();
 
-        // Miner — 1 iron_ore every 2 seconds, output on port 0 (PosZ face)
+        // ── Power infrastructure ──────────────────────────────────────────────
+        _simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(0,  0, -4));
+        _simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(2,  0, -4));
+        _simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(4,  0, -4));
+        _simulation.PlaceBlock(BlockCatalogue.SmallBattery,   construct.Id, new GridPos(6,  0, -4));
+
+        // ── Production chain ──────────────────────────────────────────────────
         var miner = _simulation.PlaceBlock(BlockCatalogue.BasicMiner, construct.Id, new GridPos(0, 0, 0));
         _simulation.Machines.Get<MinerMachine>(miner.Id)
             ?.SetResourceNode("iron_ore", cycleTime: 2f, amountPerCycle: 1);
 
-        // Furnace — iron_ore → iron_plate (3.5 s), input port 0 (NegZ), output port 0 (PosZ)
         var furnace = _simulation.PlaceBlock(BlockCatalogue.ElectricFurnace, construct.Id, new GridPos(6, 0, 0));
         _simulation.Machines.Get<BaseMachine>(furnace.Id)
             ?.SetRecipe(RecipeCatalogue.SmeltIron);
 
-        // Assembler — 2× iron_plate → 1× iron_gear (0.5 s), input port 0 (NegX)
         var assembler = _simulation.PlaceBlock(BlockCatalogue.AssemblerMk1, construct.Id, new GridPos(14, 0, 0));
         _simulation.Machines.Get<BaseMachine>(assembler.Id)
             ?.SetRecipe(RecipeCatalogue.IronGearWheel);
 
-        // Miner.out[0] → Furnace.in[0]
-        // 6-slot belt: simulates a ~3 m spline path between the two machines
+        // ── Logistics ─────────────────────────────────────────────────────────
         _simulation.Logistics.Connect(
             sourceBlockId: miner.Id,    sourcePort: 0,
             destBlockId:   furnace.Id,  destPort:   0,
             lengthInCells: 6);
 
-        // Furnace.out[0] → Assembler.in[0]
-        // 4-slot belt: simulates a ~2 m spline path
         _simulation.Logistics.Connect(
             sourceBlockId: furnace.Id,   sourcePort: 0,
             destBlockId:   assembler.Id, destPort:   0,
@@ -77,54 +80,95 @@ public class GameManager : MonoBehaviour
             $"Tick {_simulation.Tick,-6} | " +
             $"Blocks: {_simulation.Blocks.ById.Count}  " +
             $"Machines: {_simulation.Machines.Count}  " +
-            $"Belts: {_simulation.Logistics.Count}");
-        _sb.AppendLine(new string('─', 66));
+            $"Belts: {_simulation.Logistics.Count}  " +
+            $"Networks: {_simulation.Power.Networks.Count}");
 
-        // Machines
+        // ── Power networks ────────────────────────────────────────────────────
+        foreach (var net in _simulation.Power.Networks.Values)
+        {
+            string stateLabel = net.State switch
+            {
+                PowerState.Nominal      => "NOMINAL",
+                PowerState.BatteryAssist=> "BATTERY ASSIST",
+                PowerState.Deficit      => $"DEFICIT  ({net.TotalSupplyKW:F0}/{net.TotalDemandKW:F0} kW)",
+                PowerState.Dead         => "DEAD",
+                _                       => net.State.ToString(),
+            };
+
+            _sb.AppendLine(new string('─', 66));
+            _sb.AppendLine($"Network {net.Id}  [{stateLabel}]" +
+                           $"  Supply {net.TotalSupplyKW:F0} kW  Demand {net.TotalDemandKW:F0} kW");
+
+            // Generators
+            foreach (var id in net.GeneratorIds)
+            {
+                if (!_simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
+                var gs = b.GeneratorState;
+                _sb.AppendLine($"  GEN  [{id}] {b.Definition.DisplayName,-20} " +
+                               $"{(gs.IsRunning ? gs.CurrentOutputKW + " kW" : "OFF")}");
+            }
+
+            // Batteries
+            foreach (var id in net.BatteryIds)
+            {
+                if (!_simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
+                var bat = b.BatteryState;
+                int pct = Mathf.RoundToInt(bat.ChargePercent * 100f);
+                _sb.AppendLine($"  BAT  [{id}] {b.Definition.DisplayName,-20} " +
+                               $"{bat.StoredKJ:F0}/{bat.CapacityKJ:F0} kJ  ({pct}%)");
+            }
+
+            // Consumers
+            foreach (var id in net.ConsumerIds)
+            {
+                if (!_simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
+                float rate = b.MachineState?.OperatingRate ?? 1f;
+                _sb.AppendLine($"  CON  [{id}] {b.Definition.DisplayName,-20} " +
+                               $"{b.Definition.PowerDrawKW:F0} kW  rate {rate:P0}");
+            }
+        }
+
+        // ── Machines ──────────────────────────────────────────────────────────
+        _sb.AppendLine(new string('─', 66));
         foreach (var block in _simulation.Blocks.ById.Values)
         {
             var ms = block.MachineState;
             if (ms == null) continue;
 
-            string type   = block.Definition.FunctionalType.ToString();
-            string recipe = ms.ActiveRecipe?.DisplayName ?? "no recipe";
-            string mode   = ms.Mode.ToString();
-            int    pct    = Mathf.RoundToInt(ms.CycleProgress * 100f);
-
-            _sb.AppendLine($"[{block.Id}] {type,-14} {mode,-10} \"{recipe}\"  {pct,3}%");
+            int pct = Mathf.RoundToInt(ms.CycleProgress * 100f);
+            _sb.AppendLine($"[{block.Id}] {block.Definition.FunctionalType,-14} " +
+                           $"{ms.Mode,-10} \"{ms.ActiveRecipe?.DisplayName ?? "no recipe"}\"  " +
+                           $"{pct,3}%  rate {ms.OperatingRate:P0}");
 
             foreach (var slot in ms.InputBuffer.Slots)
                 if (!string.IsNullOrEmpty(slot.ItemId))
                     _sb.AppendLine($"       IN  {slot.Quantity,4}× {slot.ItemId}");
-
             foreach (var slot in ms.OutputBuffer.Slots)
                 if (!string.IsNullOrEmpty(slot.ItemId))
                     _sb.AppendLine($"       OUT {slot.Quantity,4}× {slot.ItemId}");
         }
 
-        // Belts — show each slot as a filled or empty cell
+        // ── Belts ─────────────────────────────────────────────────────────────
         if (_simulation.Logistics.Count > 0)
         {
             _sb.AppendLine(new string('─', 66));
             foreach (var belt in _simulation.Logistics.Belts.Values)
             {
-                // Slot visualisation: [■] = item present, [ ] = empty
-                _sb.Append($"Belt {belt.Id}  Blk{belt.SourceBlockId}.out[{belt.SourcePortIndex}]→" +
+                _sb.Append($"Belt {belt.Id}  " +
+                           $"Blk{belt.SourceBlockId}.out[{belt.SourcePortIndex}]→" +
                            $"Blk{belt.DestBlockId}.in[{belt.DestPortIndex}]  " +
                            $"{belt.ThroughputPerMin}/min  ");
 
-                for (int i = 0; i < belt.Slots.Length; i++)
-                    _sb.Append(belt.Slots[i] != null ? "[■]" : "[ ]");
+                foreach (var slot in belt.Slots)
+                    _sb.Append(slot != null ? "[■]" : "[ ]");
 
-                // Show what item type is on the belt (first non-null slot)
                 string itemOnBelt = null;
                 foreach (var s in belt.Slots) if (s != null) { itemOnBelt = s; break; }
                 if (itemOnBelt != null) _sb.Append($"  {itemOnBelt}");
-
                 _sb.AppendLine();
             }
         }
 
-        GUI.Label(new Rect(10, 10, 600, 900), _sb.ToString());
+        GUI.Label(new Rect(10, 10, 640, 1000), _sb.ToString());
     }
 }

@@ -16,6 +16,7 @@ public class Simulation
 
     public readonly BlockTable      Blocks     = new BlockTable();
     public readonly ConstructTable  Constructs = new ConstructTable();
+    public readonly PowerSystem     Power      = new PowerSystem();
     public readonly MachineSystem   Machines   = new MachineSystem();
     public readonly LogisticsSystem Logistics  = new LogisticsSystem();
 
@@ -25,8 +26,9 @@ public class Simulation
     public void Update()
     {
         Tick++;
-        Machines.Tick();                                    // produce outputs first
-        Logistics.Tick(MachineSystem.TickDelta, Blocks);   // then move items between machines
+        Power.Tick(MachineSystem.TickDelta, Blocks);        // 1. set OperatingRate on all consumers
+        Machines.Tick();                                    // 2. advance production at throttled rate
+        Logistics.Tick(MachineSystem.TickDelta, Blocks);   // 3. move items between machines
     }
 
     // Creates an empty construct and registers it. Called before placing the first block.
@@ -55,6 +57,7 @@ public class Simulation
 
         Blocks.ById[block.Id] = block;
         IndexBlockToConstruct(block.Id, constructId);
+        Power.Register(block);
         Machines.Register(block);
 
         var construct = Constructs.ById[constructId];
@@ -83,6 +86,7 @@ public class Simulation
         var newConstructIds = new List<int>();
 
         if (!Blocks.ById.TryGetValue(blockId, out var block)) return newConstructIds;
+        Power.Unregister(block);
         Machines.Unregister(blockId);
         Logistics.DisconnectBlock(blockId);
 

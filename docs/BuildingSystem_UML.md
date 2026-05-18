@@ -577,7 +577,56 @@ classDiagram
 
 ---
 
-## 8 — Logistics System
+## 8 — Power System
+
+```mermaid
+classDiagram
+    class PowerSystem {
+        +Networks IReadOnlyDictionary
+        +CreateNetwork(constructId) PowerNetwork
+        +GetOrCreateNetworkId(constructId) int
+        +Register(Block)
+        +Unregister(Block)
+        +Tick(tickDelta, BlockTable)
+        -TickNetwork(PowerNetwork, tickDelta, BlockTable)
+        -ChargeBatteries(network, surplusKW, tickDelta, BlockTable)
+        -DischargeBatteries(network, deficitKW, tickDelta, BlockTable) float
+        -SetOperatingRates(network, rate, BlockTable)
+        -PowerNetworkTable _table
+    }
+
+    class PowerNetwork {
+        +int Id
+        +List~int~ GeneratorIds
+        +List~int~ BatteryIds
+        +List~int~ ConsumerIds
+        +List~int~ PoleIds
+        +float TotalSupplyKW
+        +float TotalDemandKW
+        +PowerState State
+    }
+
+    PowerSystem "1" *-- "*" PowerNetwork
+    PowerNetwork --> PowerState
+```
+
+**Tick order (per simulation step):**
+1. `Power.Tick()` — sets `OperatingRate` on all consumer `MachineState`s
+2. `Machines.Tick()` — advances production at throttled rate
+3. `Logistics.Tick()` — moves items between machines
+
+**Balance algorithm:**
+- `supply = Σ GeneratorState.CurrentOutputKW` (running generators only)
+- `demand = Σ BlockDefinition.PowerDrawKW` (all registered consumers)
+- surplus → charge batteries up to `MaxChargeRateKW` each → `Nominal`
+- deficit → discharge batteries up to `MaxDischargeRateKW` each → `BatteryAssist` if covered, `Deficit` if partial, `Dead` if effectiveSupply ≤ 0
+- `OperatingRate = effectiveSupply / demand` in Deficit state (proportional throttle)
+
+**V1 simplification:** generators run unconditionally (`IsRunning = true`, `FuelRemaining = ∞`). Fuel consumption is a future `FuelSystem` concern.
+
+---
+
+## 9 — Logistics System
 
 ```mermaid
 classDiagram
@@ -652,6 +701,10 @@ classDiagram
 | **Belt throughput** | Mk1 conveyor: 60 items/min. Uses progress accumulator (`ItemProgress += throughput/60 * tickDelta`) — same pattern as machine `CycleProgress`. No item-in-transit objects. |
 | **Belt stall behaviour** | If a transfer is blocked, `ItemProgress` is capped at 1.0 (not allowed to accumulate further). Retried next tick without wasting throughput. |
 | **Tick order** | `MachineSystem.Tick()` → `LogisticsSystem.Tick()`. Machines produce first, belts distribute second within the same simulation step. |
+| **Power network per construct** | `CreateConstruct()` does not auto-create a network. `PowerSystem.Register(block)` calls `GetOrCreateNetworkId()` which lazily creates the first network for the construct on demand. |
+| **Multiple networks per construct** | Supported in the table (`ByConstruct` maps to a list). Pole wiring will split/merge networks when implemented. For V1, all blocks in a construct share one network. |
+| **Consumer throttling** | `OperatingRate = effectiveSupply / demand`. Written to `MachineState.OperatingRate` on all consumers. MachineSystem reads this when advancing `CycleProgress`. Turret priority (turrets always full power before others throttled) is a future addition. |
+| **Tick order** | Power → Machines → Logistics. Power sets rates first so machines see the correct throttle in the same tick. |
 | **Belt V1 scope** | Belt segments are logical connections (no belt blocks in the world). `LogisticsSystem.Connect()` wires two machine slots directly. Belt block placement comes later. |
 | **Port definitions** | Each `BlockDefinition` carries a `PortDefinition[]`. Each port has `Index` (maps 1:1 to buffer slot), `Type` (Input/Output), and `Face` (which block face the spline attaches to in the view layer). |
 | **Belt length source** | `LengthInCells = floor(splineArcLength / CellSize)`. NOT the straight-line grid distance between machines. The view layer computes arc length from the spline fitted through port anchors and belt-stand waypoints, then passes it to `LogisticsSystem.Connect()`. |
