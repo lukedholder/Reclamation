@@ -23,7 +23,11 @@ public class BlockPlacer : MonoBehaviour
     {
         _raycaster = GetComponent<Raycaster>();
         _hotbar    = GetComponent<Hotbar>();
-        _sim       = GameManager.Instance.Simulation;
+    }
+
+    private void Start()
+    {
+        _sim = GameManager.Instance.Simulation;
     }
 
     private void Update()
