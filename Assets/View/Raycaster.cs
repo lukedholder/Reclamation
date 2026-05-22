@@ -41,7 +41,7 @@ public class Raycaster : MonoBehaviour
 
     private void OnGUI()
     {
-        string label = HasHit
+        string label = HasHit && Hit.collider != null
             ? $"Aim: {Hit.collider.gameObject.name}  dist {Hit.distance:F1} m"
             : "Aim: —";
 
