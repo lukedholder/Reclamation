@@ -3,14 +3,20 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
-    private Simulation _simulation;
+    public static GameManager Instance   { get; private set; }
+    public         Simulation  Simulation { get; private set; }
     private float      _accumulator;
 
     private const float TickRate = 1f / 20f;
 
+    private void Awake()
+    {
+        Instance   = this;
+        Simulation = new Simulation();
+    }
+
     private void Start()
     {
-        _simulation = new Simulation();
         RunDebugScenario();
     }
 
@@ -19,7 +25,7 @@ public class GameManager : MonoBehaviour
         _accumulator += Time.deltaTime;
         while (_accumulator >= TickRate)
         {
-            _simulation.Update();
+            Simulation.Update();
             _accumulator -= TickRate;
         }
     }
@@ -37,34 +43,34 @@ public class GameManager : MonoBehaviour
 
     private void RunDebugScenario()
     {
-        var construct = _simulation.CreateConstruct();
+        var construct = Simulation.CreateConstruct();
 
         // ── Power infrastructure ──────────────────────────────────────────────
-        _simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(0,  0, -4));
-        _simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(2,  0, -4));
-        _simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(4,  0, -4));
-        _simulation.PlaceBlock(BlockCatalogue.SmallBattery,   construct.Id, new GridPos(6,  0, -4));
+        Simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(0,  0, -4));
+        Simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(2,  0, -4));
+        Simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(4,  0, -4));
+        Simulation.PlaceBlock(BlockCatalogue.SmallBattery,   construct.Id, new GridPos(6,  0, -4));
 
         // ── Production chain ──────────────────────────────────────────────────
-        var miner = _simulation.PlaceBlock(BlockCatalogue.BasicMiner, construct.Id, new GridPos(0, 0, 0));
-        _simulation.Machines.Get<MinerMachine>(miner.Id)
+        var miner = Simulation.PlaceBlock(BlockCatalogue.BasicMiner, construct.Id, new GridPos(0, 0, 0));
+        Simulation.Machines.Get<MinerMachine>(miner.Id)
             ?.SetResourceNode("iron_ore", cycleTime: 2f, amountPerCycle: 1);
 
-        var furnace = _simulation.PlaceBlock(BlockCatalogue.ElectricFurnace, construct.Id, new GridPos(6, 0, 0));
-        _simulation.Machines.Get<BaseMachine>(furnace.Id)
+        var furnace = Simulation.PlaceBlock(BlockCatalogue.ElectricFurnace, construct.Id, new GridPos(6, 0, 0));
+        Simulation.Machines.Get<BaseMachine>(furnace.Id)
             ?.SetRecipe(RecipeCatalogue.SmeltIron);
 
-        var assembler = _simulation.PlaceBlock(BlockCatalogue.AssemblerMk1, construct.Id, new GridPos(14, 0, 0));
-        _simulation.Machines.Get<BaseMachine>(assembler.Id)
+        var assembler = Simulation.PlaceBlock(BlockCatalogue.AssemblerMk1, construct.Id, new GridPos(14, 0, 0));
+        Simulation.Machines.Get<BaseMachine>(assembler.Id)
             ?.SetRecipe(RecipeCatalogue.IronGearWheel);
 
         // ── Logistics ─────────────────────────────────────────────────────────
-        _simulation.Logistics.Connect(
+        Simulation.Logistics.Connect(
             sourceBlockId: miner.Id,    sourcePort: 0,
             destBlockId:   furnace.Id,  destPort:   0,
             lengthInCells: 6);
 
-        _simulation.Logistics.Connect(
+        Simulation.Logistics.Connect(
             sourceBlockId: furnace.Id,   sourcePort: 0,
             destBlockId:   assembler.Id, destPort:   0,
             lengthInCells: 4);
@@ -79,14 +85,14 @@ public class GameManager : MonoBehaviour
         _sb.Clear();
 
         _sb.AppendLine(
-            $"Tick {_simulation.Tick,-6} | " +
-            $"Blocks: {_simulation.Blocks.ById.Count}  " +
-            $"Machines: {_simulation.Machines.Count}  " +
-            $"Belts: {_simulation.Logistics.Count}  " +
-            $"Networks: {_simulation.Power.Networks.Count}");
+            $"Tick {Simulation.Tick,-6} | " +
+            $"Blocks: {Simulation.Blocks.ById.Count}  " +
+            $"Machines: {Simulation.Machines.Count}  " +
+            $"Belts: {Simulation.Logistics.Count}  " +
+            $"Networks: {Simulation.Power.Networks.Count}");
 
         // ── Power networks ────────────────────────────────────────────────────
-        foreach (var net in _simulation.Power.Networks.Values)
+        foreach (var net in Simulation.Power.Networks.Values)
         {
             string stateLabel = net.State switch
             {
@@ -104,7 +110,7 @@ public class GameManager : MonoBehaviour
             // Generators
             foreach (var id in net.GeneratorIds)
             {
-                if (!_simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
+                if (!Simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
                 var gs = b.GeneratorState;
                 _sb.AppendLine($"  GEN  [{id}] {b.Definition.DisplayName,-20} " +
                                $"{(gs.IsRunning ? gs.CurrentOutputKW + " kW" : "OFF")}");
@@ -113,7 +119,7 @@ public class GameManager : MonoBehaviour
             // Batteries
             foreach (var id in net.BatteryIds)
             {
-                if (!_simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
+                if (!Simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
                 var bat = b.BatteryState;
                 int pct = Mathf.RoundToInt(bat.ChargePercent * 100f);
                 _sb.AppendLine($"  BAT  [{id}] {b.Definition.DisplayName,-20} " +
@@ -123,7 +129,7 @@ public class GameManager : MonoBehaviour
             // Consumers
             foreach (var id in net.ConsumerIds)
             {
-                if (!_simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
+                if (!Simulation.Blocks.ById.TryGetValue(id, out var b)) continue;
                 float rate = b.MachineState?.OperatingRate ?? 1f;
                 _sb.AppendLine($"  CON  [{id}] {b.Definition.DisplayName,-20} " +
                                $"{b.Definition.PowerDrawKW:F0} kW  rate {rate:P0}");
@@ -132,7 +138,7 @@ public class GameManager : MonoBehaviour
 
         // ── Machines ──────────────────────────────────────────────────────────
         _sb.AppendLine(new string('─', 66));
-        foreach (var block in _simulation.Blocks.ById.Values)
+        foreach (var block in Simulation.Blocks.ById.Values)
         {
             var ms = block.MachineState;
             if (ms == null) continue;
@@ -151,10 +157,10 @@ public class GameManager : MonoBehaviour
         }
 
         // ── Belts ─────────────────────────────────────────────────────────────
-        if (_simulation.Logistics.Count > 0)
+        if (Simulation.Logistics.Count > 0)
         {
             _sb.AppendLine(new string('─', 66));
-            foreach (var belt in _simulation.Logistics.Belts.Values)
+            foreach (var belt in Simulation.Logistics.Belts.Values)
             {
                 _sb.Append($"Belt {belt.Id}  " +
                            $"Blk{belt.SourceBlockId}.out[{belt.SourcePortIndex}]→" +
