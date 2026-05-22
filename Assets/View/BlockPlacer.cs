@@ -45,7 +45,7 @@ public class BlockPlacer : MonoBehaviour
         // Placing on existing blocks (face-snap into the same construct)
         // comes in a later step once blocks have proper view objects.
         var construct = _sim.CreateConstruct();
-        _sim.PlaceBlock(def, construct.Id, GridPos.Zero);
+        var block     = _sim.PlaceBlock(def, construct.Id, GridPos.Zero);
 
         // Spawn a primitive cube as a temporary visual.
         // The block's bottom face sits on the terrain at the hit point.
@@ -59,5 +59,7 @@ public class BlockPlacer : MonoBehaviour
             def.SizeX * CellSize,
             def.SizeY * CellSize,
             def.SizeZ * CellSize);
+
+        go.AddComponent<BlockView>().Init(block);
     }
 }
