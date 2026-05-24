@@ -39,45 +39,69 @@ public class BlockPlacer : MonoBehaviour
     private void TryPlace()
     {
         var def       = _hotbar.SelectedDefinition;
+        int rot       = _hotbar.RotationSteps;
         var hit       = _raycaster.Hit;
         var blockView = hit.collider.GetComponent<BlockView>();
 
-        Block   block;
-        Vector3 worldCenter;
+        Block         block;
+        ConstructView constructView;
+        Vector3       localPos;
 
         if (blockView != null)
-            PlaceOnBlock(def, hit, blockView, out block, out worldCenter);
+            PlaceOnBlock(def, rot, hit, blockView, out block, out constructView, out localPos);
         else
-            PlaceOnTerrain(def, hit, out block, out worldCenter);
+            PlaceOnTerrain(def, rot, hit, out block, out constructView, out localPos);
+
+        bool swap = (rot & 1) == 1;
+        int sx = swap ? def.SizeZ : def.SizeX;
+        int sy = def.SizeY;
+        int sz = swap ? def.SizeX : def.SizeZ;
 
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = def.DisplayName;
-        go.transform.position   = worldCenter;
-        go.transform.localScale = new Vector3(
-            def.SizeX * CellSize,
-            def.SizeY * CellSize,
-            def.SizeZ * CellSize);
+        go.transform.SetParent(constructView.transform, worldPositionStays: false);
+        go.transform.localPosition = localPos;
+        go.transform.localScale    = new Vector3(sx * CellSize, sy * CellSize, sz * CellSize);
         go.AddComponent<BlockView>().Init(block);
     }
 
     // ── Placement modes ───────────────────────────────────────────────────────
 
-    private void PlaceOnTerrain(BlockDefinition def, RaycastHit hit,
-                                out Block block, out Vector3 worldCenter)
+    private void PlaceOnTerrain(BlockDefinition def, int rot, RaycastHit hit,
+                                out Block block, out ConstructView constructView, out Vector3 localPos)
     {
-        var construct = _sim.CreateConstruct();
-        block = _sim.PlaceBlock(def, construct.Id, GridPos.Zero);
-        worldCenter = new Vector3(
-            hit.point.x,
-            hit.point.y + def.SizeY * 0.5f * CellSize,
-            hit.point.z);
+        bool swap = (rot & 1) == 1;
+        int sx = swap ? def.SizeZ : def.SizeX;
+        int sy = def.SizeY;
+        int sz = swap ? def.SizeX : def.SizeZ;
+
+        var simConstruct = _sim.CreateConstruct();
+        block = _sim.PlaceBlock(def, simConstruct.Id, GridPos.Zero, rot);
+
+        // Construct origin = world position of GridPos(0,0,0), which is the minimum
+        // corner of the first block. The ghost centers the block on hit.point (X/Z),
+        // so the origin is half a footprint behind that.
+        var cvGO = new GameObject();
+        cvGO.transform.position = new Vector3(
+            hit.point.x - sx * 0.5f * CellSize,
+            hit.point.y,
+            hit.point.z - sz * 0.5f * CellSize);
+        constructView = cvGO.AddComponent<ConstructView>();
+        constructView.Init(simConstruct);
+
+        // First block sits at GridPos(0,0,0) — its center is half a block up from the origin.
+        localPos = new Vector3(sx * 0.5f * CellSize, sy * 0.5f * CellSize, sz * 0.5f * CellSize);
     }
 
-    private void PlaceOnBlock(BlockDefinition def, RaycastHit hit, BlockView blockView,
-                              out Block block, out Vector3 worldCenter)
+    private void PlaceOnBlock(BlockDefinition def, int rot, RaycastHit hit, BlockView blockView,
+                              out Block block, out ConstructView constructView, out Vector3 localPos)
     {
         var hitBlock = blockView.Block;
         var hitDef   = hitBlock.Definition;
+
+        // Construct origin lives on the parent transform — no need to rederive it.
+        constructView = blockView.GetComponentInParent<ConstructView>();
+        Vector3 origin = constructView.transform.position;
 
         // Identify the dominant axis of the hit normal.
         var   n  = hit.normal;
@@ -87,14 +111,10 @@ public class BlockPlacer : MonoBehaviour
 
         int[] hGrid = { hitBlock.GridPosition.X, hitBlock.GridPosition.Y, hitBlock.GridPosition.Z };
         int[] hSize = { hitDef.SizeX,            hitDef.SizeY,            hitDef.SizeZ            };
-        int[] nSize = { def.SizeX,               def.SizeY,               def.SizeZ               };
 
-        // Derive the construct's world origin from the hit block's position and GridPos.
-        Vector3 hitCenter = blockView.transform.position;
-        Vector3 origin = hitCenter - new Vector3(
-            (hGrid[0] + hSize[0] * 0.5f) * CellSize,
-            (hGrid[1] + hSize[1] * 0.5f) * CellSize,
-            (hGrid[2] + hSize[2] * 0.5f) * CellSize);
+        // Effective new-block cell size after rotation (X/Z swap on odd rotSteps).
+        bool swap = (rot & 1) == 1;
+        int[] nSize = { swap ? def.SizeZ : def.SizeX, def.SizeY, swap ? def.SizeX : def.SizeZ };
 
         // Hit point in construct-local space, used to snap the free axes.
         Vector3 local = hit.point - origin;
@@ -108,16 +128,16 @@ public class BlockPlacer : MonoBehaviour
         int Snap(int i) => Mathf.RoundToInt(local[i] / CellSize - nSize[i] * 0.5f);
 
         int gx, gy, gz;
-        if      (axis == 0) { gx = constrained; gy = Snap(1);       gz = Snap(2); }
-        else if (axis == 1) { gx = Snap(0);     gy = constrained;   gz = Snap(2); }
-        else                { gx = Snap(0);     gy = Snap(1);       gz = constrained; }
+        if      (axis == 0) { gx = constrained; gy = Snap(1);     gz = Snap(2); }
+        else if (axis == 1) { gx = Snap(0);     gy = constrained; gz = Snap(2); }
+        else                { gx = Snap(0);     gy = Snap(1);     gz = constrained; }
 
-        block = _sim.PlaceBlock(def, hitBlock.ConstructId, new GridPos(gx, gy, gz));
+        block = _sim.PlaceBlock(def, hitBlock.ConstructId, new GridPos(gx, gy, gz), rot);
 
-        // World centre — same formula as the ghost so they always agree.
-        worldCenter = origin + new Vector3(
-            (gx + def.SizeX * 0.5f) * CellSize,
-            (gy + def.SizeY * 0.5f) * CellSize,
-            (gz + def.SizeZ * 0.5f) * CellSize);
+        // Local position relative to the construct origin — matches the ghost exactly.
+        localPos = new Vector3(
+            (gx + nSize[0] * 0.5f) * CellSize,
+            (gy + nSize[1] * 0.5f) * CellSize,
+            (gz + nSize[2] * 0.5f) * CellSize);
     }
 }

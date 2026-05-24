@@ -34,6 +34,16 @@ public class BlockDismantler : MonoBehaviour
         if (blockView == null) return;
 
         _sim.RemoveBlock(blockView.Block.Id);
-        Destroy(blockView.gameObject);
+
+        var constructView = blockView.GetComponentInParent<ConstructView>();
+        if (constructView != null && constructView.transform.childCount == 1)
+        {
+            // Last block — destroy the whole construct GO (takes the block with it).
+            Destroy(constructView.gameObject);
+        }
+        else
+        {
+            Destroy(blockView.gameObject);
+        }
     }
 }

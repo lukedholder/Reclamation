@@ -6,6 +6,7 @@
 // Controls:
 //   Scroll wheel   — cycle through slots
 //   1 – 7          — jump directly to a slot
+//   R              — rotate selected block 90° (0 → 90 → 180 → 270 → 0)
 
 using UnityEngine;
 
@@ -23,26 +24,37 @@ public class Hotbar : MonoBehaviour
     };
 
     public int             SelectedIndex      { get; private set; }
+    public int             RotationSteps      { get; private set; }   // 0–3 → 0°/90°/180°/270°
     public BlockDefinition SelectedDefinition => Slots[SelectedIndex];
 
     private void Update()
     {
         HandleScrollInput();
         HandleNumberInput();
+        HandleRotationInput();
     }
 
     private void HandleScrollInput()
     {
         float scroll = Input.GetAxis("Mouse ScrollWheel");
-        if (scroll > 0f) SelectedIndex = (SelectedIndex + 1) % Slots.Length;
-        if (scroll < 0f) SelectedIndex = (SelectedIndex - 1 + Slots.Length) % Slots.Length;
+        if (scroll > 0f) { SelectedIndex = (SelectedIndex + 1) % Slots.Length; RotationSteps = 0; }
+        if (scroll < 0f) { SelectedIndex = (SelectedIndex - 1 + Slots.Length) % Slots.Length; RotationSteps = 0; }
     }
 
     private void HandleNumberInput()
     {
         for (int i = 0; i < Slots.Length && i < 9; i++)
             if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+            {
+                if (SelectedIndex != i) RotationSteps = 0;
                 SelectedIndex = i;
+            }
+    }
+
+    private void HandleRotationInput()
+    {
+        if (Input.GetKeyDown(KeyCode.R))
+            RotationSteps = (RotationSteps + 1) % 4;
     }
 
     // ── HUD ───────────────────────────────────────────────────────────────────
@@ -60,9 +72,13 @@ public class Hotbar : MonoBehaviour
             var oldColor = GUI.color;
             GUI.color = (i == SelectedIndex) ? Color.yellow : Color.white;
 
+            string suffix = (i == SelectedIndex && RotationSteps != 0)
+                ? $" {RotationSteps * 90}°"
+                : "";
+
             GUI.Label(
                 new Rect(startX + i * slotW, y, slotW, slotH),
-                $"[{i + 1}] {Slots[i].DisplayName}");
+                $"[{i + 1}] {Slots[i].DisplayName}{suffix}");
 
             GUI.color = oldColor;
         }

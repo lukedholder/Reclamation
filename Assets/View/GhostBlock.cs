@@ -40,26 +40,36 @@ public class GhostBlock : MonoBehaviour
         }
 
         var def = _hotbar.SelectedDefinition;
+        int rot = _hotbar.RotationSteps;
+        var (sx, sy, sz) = EffectiveSize(def, rot);
 
         _cube.SetActive(true);
-        _cube.transform.position = ComputeGhostCenter(def);
-        _cube.transform.localScale = new Vector3(
-            def.SizeX * CellSize,
-            def.SizeY * CellSize,
-            def.SizeZ * CellSize);
+        _cube.transform.position   = ComputeGhostCenter(def, rot);
+        _cube.transform.localScale = new Vector3(sx * CellSize, sy * CellSize, sz * CellSize);
     }
 
-    private Vector3 ComputeGhostCenter(BlockDefinition def)
+    // Returns the block's world-space cell footprint after applying rotSteps 90° Y-axis turns.
+    // Y never changes; X and Z swap on odd rotations (1 = 90°, 3 = 270°).
+    private static (int sx, int sy, int sz) EffectiveSize(BlockDefinition def, int rot)
+    {
+        bool swap = (rot & 1) == 1;
+        return swap ? (def.SizeZ, def.SizeY, def.SizeX)
+                    : (def.SizeX, def.SizeY, def.SizeZ);
+    }
+
+    private Vector3 ComputeGhostCenter(BlockDefinition def, int rot)
     {
         var hit       = _raycaster.Hit;
         var blockView = hit.collider.GetComponent<BlockView>();
+
+        var (sx, sy, sz) = EffectiveSize(def, rot);
 
         // ── Terrain hit ───────────────────────────────────────────────────────
         if (blockView == null)
         {
             return new Vector3(
                 hit.point.x,
-                hit.point.y + def.SizeY * 0.5f * CellSize,
+                hit.point.y + sy * 0.5f * CellSize,
                 hit.point.z);
         }
 
@@ -71,18 +81,16 @@ public class GhostBlock : MonoBehaviour
 
         var   hitDef    = blockView.Block.Definition;
         float hitHalf   = new float[] { hitDef.SizeX, hitDef.SizeY, hitDef.SizeZ }[axis] * 0.5f * CellSize;
-        float newHalf   = new float[] { def.SizeX,    def.SizeY,    def.SizeZ    }[axis] * 0.5f * CellSize;
+        float newHalf   = new float[] { sx,            sy,            sz            }[axis] * 0.5f * CellSize;
         float normalDir = axis == 0 ? n.x : (axis == 1 ? n.y : n.z);
 
-        // World-space corner of the hit block (minimum XYZ), used as the snap origin.
         Vector3 hitCenter = blockView.transform.position;
-        Vector3 hitCorner = hitCenter - new Vector3(
-            hitDef.SizeX * 0.5f * CellSize,
-            hitDef.SizeY * 0.5f * CellSize,
-            hitDef.SizeZ * 0.5f * CellSize);
 
-        // Hit point in hit-block-local space.
-        Vector3 local = hit.point - hitCorner;
+        // Construct grid origin — the world point that maps to GridPos(0,0,0).
+        Vector3 origin = blockView.transform.parent.position;
+
+        // Hit point in construct-local space.
+        Vector3 local = hit.point - origin;
 
         // For each axis: constrain the face axis, snap the two free axes to the grid.
         float Constrain(float center, float sign) => center + sign * (hitHalf + newHalf);
@@ -96,15 +104,15 @@ public class GhostBlock : MonoBehaviour
         {
             0 => new Vector3(
                     Constrain(hitCenter.x, Mathf.Sign(normalDir)),
-                    Snap(hitCorner.y, local.y, def.SizeY),
-                    Snap(hitCorner.z, local.z, def.SizeZ)),
+                    Snap(origin.y, local.y, sy),
+                    Snap(origin.z, local.z, sz)),
             1 => new Vector3(
-                    Snap(hitCorner.x, local.x, def.SizeX),
+                    Snap(origin.x, local.x, sx),
                     Constrain(hitCenter.y, Mathf.Sign(normalDir)),
-                    Snap(hitCorner.z, local.z, def.SizeZ)),
+                    Snap(origin.z, local.z, sz)),
             _ => new Vector3(
-                    Snap(hitCorner.x, local.x, def.SizeX),
-                    Snap(hitCorner.y, local.y, def.SizeY),
+                    Snap(origin.x, local.x, sx),
+                    Snap(origin.y, local.y, sy),
                     Constrain(hitCenter.z, Mathf.Sign(normalDir))),
         };
     }
