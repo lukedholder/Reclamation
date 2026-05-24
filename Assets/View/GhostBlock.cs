@@ -5,10 +5,10 @@
 //        Assign a semi-transparent material to the Ghost Material slot in the Inspector.
 
 using UnityEngine;
+using static ViewConstants;
 
 public class GhostBlock : MonoBehaviour
 {
-    private const float CellSize = 0.5f;
 
     [SerializeField] private Material _ghostMaterial;
 

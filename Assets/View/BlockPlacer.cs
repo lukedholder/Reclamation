@@ -8,12 +8,10 @@
 //   Left-click   — place selected block where the ray hits
 
 using UnityEngine;
+using static ViewConstants;
 
 public class BlockPlacer : MonoBehaviour
 {
-    // 1 grid cell = 0.5 m.  Matches the value used in the simulation docs.
-    // Will move to a shared ViewConstants file once the view layer grows.
-    private const float CellSize = 0.5f;
 
     private Raycaster  _raycaster;
     private Hotbar     _hotbar;
