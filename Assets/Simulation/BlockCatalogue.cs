@@ -225,4 +225,13 @@ public static class BlockCatalogue
             new PortDefinition { Index = 0, Type = PortType.Output, Face = FaceDir.PosZ },
         },
     };
+
+    // --- Catalogue enumeration (used by save / load) ---
+
+    public static System.Collections.Generic.IReadOnlyList<BlockDefinition> All() => new[]
+    {
+        SmallCube, LargeCube, Plank,
+        SteamGenerator, SmallBattery, SmallPowerPole,
+        BasicMiner, ElectricFurnace, AssemblerMk1,
+    };
 }

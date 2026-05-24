@@ -33,6 +33,11 @@ public class Raycaster : MonoBehaviour
         HasHit = Physics.Raycast(ray, out var hit, _reach);
         Hit    = hit;
 
+        // A collider destroyed earlier this frame becomes Unity-null before end-of-frame cleanup.
+        // Clear HasHit so every consumer that runs after a dismantle sees clean state.
+        if (HasHit && Hit.collider == null)
+            HasHit = false;
+
         if (HasHit)
             Debug.DrawLine(ray.origin, Hit.point, Color.green);
         else

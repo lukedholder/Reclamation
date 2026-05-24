@@ -20,6 +20,14 @@ public class GameManager : MonoBehaviour
         RunDebugScenario();
     }
 
+    // Replaces the running simulation with a fresh instance.
+    // Called by SaveLoadManager on load so the view can rebuild from file.
+    public Simulation ResetSimulation()
+    {
+        Simulation = new Simulation();
+        return Simulation;
+    }
+
     private void Update()
     {
         _accumulator += Time.deltaTime;

@@ -15,17 +15,14 @@ public class BlockPlacer : MonoBehaviour
 
     private Raycaster  _raycaster;
     private Hotbar     _hotbar;
-    private Simulation _sim;
+
+    // Always reads the current Simulation so a save-load reset doesn't leave a stale reference.
+    private Simulation Sim => GameManager.Instance.Simulation;
 
     private void Awake()
     {
         _raycaster = GetComponent<Raycaster>();
         _hotbar    = GetComponent<Hotbar>();
-    }
-
-    private void Start()
-    {
-        _sim = GameManager.Instance.Simulation;
     }
 
     private void Update()
@@ -73,8 +70,8 @@ public class BlockPlacer : MonoBehaviour
         int sy = def.SizeY;
         int sz = swap ? def.SizeX : def.SizeZ;
 
-        var simConstruct = _sim.CreateConstruct();
-        block = _sim.PlaceBlock(def, simConstruct.Id, GridPos.Zero, rot);
+        var simConstruct = Sim.CreateConstruct();
+        block = Sim.PlaceBlock(def, simConstruct.Id, GridPos.Zero, rot);
 
         // Construct origin = world position of GridPos(0,0,0), which is the minimum
         // corner of the first block. The ghost centers the block on hit.point (X/Z),
@@ -130,7 +127,7 @@ public class BlockPlacer : MonoBehaviour
         else if (axis == 1) { gx = Snap(0);     gy = constrained; gz = Snap(2); }
         else                { gx = Snap(0);     gy = Snap(1);     gz = constrained; }
 
-        block = _sim.PlaceBlock(def, hitBlock.ConstructId, new GridPos(gx, gy, gz), rot);
+        block = Sim.PlaceBlock(def, hitBlock.ConstructId, new GridPos(gx, gy, gz), rot);
 
         // Local position relative to the construct origin — matches the ghost exactly.
         localPos = new Vector3(

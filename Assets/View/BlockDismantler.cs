@@ -10,16 +10,13 @@ using UnityEngine;
 public class BlockDismantler : MonoBehaviour
 {
     private Raycaster  _raycaster;
-    private Simulation _sim;
+
+    // Always reads the current Simulation so a save-load reset doesn't leave a stale reference.
+    private Simulation Sim => GameManager.Instance.Simulation;
 
     private void Awake()
     {
         _raycaster = GetComponent<Raycaster>();
-    }
-
-    private void Start()
-    {
-        _sim = GameManager.Instance.Simulation;
     }
 
     private void Update()
@@ -33,7 +30,7 @@ public class BlockDismantler : MonoBehaviour
         var blockView = _raycaster.Hit.collider.GetComponent<BlockView>();
         if (blockView == null) return;
 
-        _sim.RemoveBlock(blockView.Block.Id);
+        Sim.RemoveBlock(blockView.Block.Id);
 
         var constructView = blockView.GetComponentInParent<ConstructView>();
         if (constructView != null && constructView.transform.childCount == 1)
