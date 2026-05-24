@@ -63,18 +63,10 @@ public class Simulation
         var construct = Constructs.ById[constructId];
         construct.BlockIds.Add(block.Id);
 
-        // Merge any separate constructs the new block is touching
-        var touchedConstructIds = new HashSet<int>();
-        foreach (var other in Blocks.ById.Values)
-        {
-            if (other.Id == block.Id) continue;
-            if (other.ConstructId == constructId) continue;
-            if (AreAdjacent(block, other))
-                touchedConstructIds.Add(other.ConstructId);
-        }
-
-        foreach (var otherId in touchedConstructIds)
-            MergeInto(survivorId: constructId, dissolvedId: otherId);
+        // Construct merging is deferred to the docking system.
+        // AreAdjacent compares GridPos values, which are construct-local — calling it
+        // across constructs would compare unrelated coordinate spaces and trigger false
+        // merges.  MergeInto remains available for the docking implementation.
 
         return block;
     }

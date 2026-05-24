@@ -30,17 +30,51 @@ public class BlockDismantler : MonoBehaviour
         var blockView = _raycaster.Hit.collider.GetComponent<BlockView>();
         if (blockView == null) return;
 
-        Sim.RemoveBlock(blockView.Block.Id);
-
         var constructView = blockView.GetComponentInParent<ConstructView>();
+
+        // Remove from simulation. May return new construct IDs if removal splits connectivity.
+        var splitIds = Sim.RemoveBlock(blockView.Block.Id);
+
         if (constructView != null && constructView.transform.childCount == 1)
         {
             // Last block — destroy the whole construct GO (takes the block with it).
             Destroy(constructView.gameObject);
+            return;
         }
-        else
+
+        Destroy(blockView.gameObject);
+
+        if (splitIds.Count > 0)
+            HandleSplit(constructView, splitIds);
+    }
+
+    // When a removal severs a construct into pieces, the sim creates new construct IDs
+    // for the disconnected components and updates each Block.ConstructId accordingly.
+    // The view creates a new ConstructView for each piece and re-parents its block cubes.
+    // Both the original and new ConstructViews share the same world origin — block GridPos
+    // values are relative to that origin and are never changed by a split.
+    private void HandleSplit(ConstructView originalCV, System.Collections.Generic.List<int> splitIds)
+    {
+        Vector3 origin = originalCV.transform.position;
+
+        foreach (int newId in splitIds)
         {
-            Destroy(blockView.gameObject);
+            var cvGO = new GameObject();
+            cvGO.transform.position = origin;
+            var newCV = cvGO.AddComponent<ConstructView>();
+            newCV.Init(Sim.Constructs.ById[newId]);
+
+            // Collect children whose Block now belongs to this new construct.
+            var toReparent = new System.Collections.Generic.List<Transform>();
+            foreach (Transform child in originalCV.transform)
+            {
+                var bv = child.GetComponent<BlockView>();
+                if (bv != null && bv.Block.ConstructId == newId)
+                    toReparent.Add(child);
+            }
+
+            foreach (var t in toReparent)
+                t.SetParent(newCV.transform, worldPositionStays: true);
         }
     }
 }
