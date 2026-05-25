@@ -89,7 +89,7 @@ public class MachineInteractor : MonoBehaviour
         else
         {
             // Only open when cursor is locked (FPS mode) and wire tool is not active.
-            if (eKey && !_hotbar.IsWireMode) TryOpen();
+            if (eKey && !_hotbar.IsToolMode) TryOpen();
         }
     }
 

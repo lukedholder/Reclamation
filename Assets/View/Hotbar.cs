@@ -6,8 +6,8 @@
 //
 // Controls:
 //   Scroll wheel   — cycle through slots
-//   1 – 8          — jump directly to a slot
-//   R              — rotate selected block 90° (no effect on Wire slot)
+//   1 – 9          — jump directly to a slot
+//   R              — rotate selected block 90° (no effect on tool slots)
 
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,14 +24,17 @@ public class Hotbar : MonoBehaviour
         BlockCatalogue.BasicMiner,
         BlockCatalogue.ElectricFurnace,
         BlockCatalogue.AssemblerMk1,
-        null,   // slot 8 — Wire tool (no block definition)
+        null,   // slot 8 — Wire tool
+        null,   // slot 9 — Belt tool
     };
 
     public int             SelectedIndex      { get; private set; }
     public int             RotationSteps      { get; private set; }   // 0–3 → 0°/90°/180°/270°
     public BlockDefinition SelectedDefinition => NoBlockActive ? null : Slots[SelectedIndex];
-    public bool            IsWireMode         => Slots[SelectedIndex] == null;
-    public bool            NoBlockActive      => IsWireMode || _deselected;
+    public bool            IsWireMode         => SelectedIndex == 7;   // slot 8 key
+    public bool            IsBeltMode         => SelectedIndex == 8;   // slot 9 key
+    public bool            IsToolMode         => IsWireMode || IsBeltMode;
+    public bool            NoBlockActive      => IsToolMode || _deselected;
 
     private bool _deselected;
 
@@ -78,11 +81,11 @@ public class Hotbar : MonoBehaviour
 
     private void HandleNumberInput()
     {
-        for (int i = 0; i < Slots.Length && i < 9; i++)
+        for (int i = 0; i < Slots.Length; i++)
         {
             if (Input.GetKeyDown(KeyCode.Alpha1 + i))
             {
-                if (i == SelectedIndex && !IsWireMode)
+                if (i == SelectedIndex && Slots[i] != null)
                     _deselected = !_deselected;     // same slot again: toggle cancel
                 else
                 {
@@ -97,7 +100,7 @@ public class Hotbar : MonoBehaviour
     private void HandleDeselect()
     {
         // Q hard-cancels the active block without changing the selected slot.
-        if (Input.GetKeyDown(KeyCode.Q) && !IsWireMode)
+        if (Input.GetKeyDown(KeyCode.Q) && Slots[SelectedIndex] != null)
             _deselected = true;
     }
 
@@ -173,7 +176,9 @@ public class Hotbar : MonoBehaviour
     {
         for (int i = 0; i < Slots.Length; i++)
         {
-            string name   = Slots[i] != null ? Slots[i].DisplayName : "Wire Tool";
+            string name   = Slots[i] != null ? Slots[i].DisplayName
+                          : i == 7           ? "Wire Tool"
+                          :                   "Belt Tool";
             string suffix = (i == SelectedIndex && Slots[i] != null && RotationSteps != 0)
                 ? $" ({RotationSteps * 90}°)"
                 : "";

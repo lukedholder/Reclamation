@@ -23,8 +23,8 @@ public class BlockDismantler : MonoBehaviour
 
     private void Update()
     {
-        // Wire tool owns right-click while active (cancels pending connection).
-        if (_hotbar.IsWireMode) return;
+        // Wire/Belt tools own right-click while active.
+        if (_hotbar.IsToolMode) return;
         if (Input.GetMouseButtonDown(1) && _raycaster.HasHit)
             TryDismantle();
     }

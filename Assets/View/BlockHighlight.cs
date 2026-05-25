@@ -32,8 +32,8 @@ public class BlockHighlight : MonoBehaviour
 
     private void Update()
     {
-        // Wire tool draws its own coloured highlights — suppress this one.
-        if (!_raycaster.HasHit || _hotbar.IsWireMode)
+        // Wire/Belt tools draw their own highlights — suppress this one.
+        if (!_raycaster.HasHit || _hotbar.IsToolMode)
         {
             _cube.SetActive(false);
             return;
