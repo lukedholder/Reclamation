@@ -6,6 +6,7 @@
 // Finds the child Camera automatically.
 
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Raycaster : MonoBehaviour
 {
@@ -15,10 +16,31 @@ public class Raycaster : MonoBehaviour
     public RaycastHit Hit    { get; private set; }
 
     private Camera _camera;
+    private Text   _aimLabel;
 
     private void Awake()
     {
         _camera = GetComponentInChildren<Camera>();
+    }
+
+    private void Start()
+    {
+        // Aim label — top-centre of screen.
+        var go = new GameObject("AimLabel");
+        go.transform.SetParent(UIRoot.Canvas.transform, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(0.5f, 1f);
+        rt.anchorMax        = new Vector2(0.5f, 1f);
+        rt.pivot            = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, -8f);
+        rt.sizeDelta        = new Vector2(400f, 24f);
+
+        _aimLabel = go.AddComponent<Text>();
+        if (UIRoot.Font != null) _aimLabel.font = UIRoot.Font;
+        _aimLabel.fontSize      = 12;
+        _aimLabel.color         = Color.white;
+        _aimLabel.alignment     = TextAnchor.UpperCenter;
+        _aimLabel.raycastTarget = false;
     }
 
     private void Update()
@@ -26,6 +48,7 @@ public class Raycaster : MonoBehaviour
         if (Cursor.lockState != CursorLockMode.Locked)
         {
             HasHit = false;
+            if (_aimLabel != null) _aimLabel.text = string.Empty;
             return;
         }
 
@@ -42,14 +65,10 @@ public class Raycaster : MonoBehaviour
             Debug.DrawLine(ray.origin, Hit.point, Color.green);
         else
             Debug.DrawRay(ray.origin, ray.direction * _reach, Color.red);
-    }
 
-    private void OnGUI()
-    {
-        string label = HasHit && Hit.collider != null
-            ? $"Aim: {Hit.collider.gameObject.name}  dist {Hit.distance:F1} m"
-            : "Aim: —";
-
-        GUI.Label(new Rect(Screen.width / 2f - 150f, 8f, 300f, 24f), label);
+        if (_aimLabel != null)
+            _aimLabel.text = HasHit && Hit.collider != null
+                ? $"Aim: {Hit.collider.gameObject.name}  dist {Hit.distance:F1} m"
+                : "Aim: —";
     }
 }

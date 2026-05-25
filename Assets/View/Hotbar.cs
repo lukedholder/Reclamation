@@ -1,15 +1,16 @@
-// Tracks which block type the player currently has selected.
+// Tracks which block type (or tool) the player currently has selected.
 // Creative mode — blocks are infinite, no inventory required.
 //
 // Setup: attach to the Player GameObject alongside PlayerController.
+//        UIRoot must be in the scene (attached to GameManager or similar).
 //
 // Controls:
 //   Scroll wheel   — cycle through slots
 //   1 – 8          — jump directly to a slot
-//   R              — rotate selected block 90° (0 → 90 → 180 → 270 → 0)
-//                    (no effect when Wire slot is active)
+//   R              — rotate selected block 90° (no effect on Wire slot)
 
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Hotbar : MonoBehaviour
 {
@@ -27,15 +28,39 @@ public class Hotbar : MonoBehaviour
 
     public int             SelectedIndex      { get; private set; }
     public int             RotationSteps      { get; private set; }   // 0–3 → 0°/90°/180°/270°
-    public BlockDefinition SelectedDefinition => Slots[SelectedIndex];  // null when wire slot
+    public BlockDefinition SelectedDefinition => Slots[SelectedIndex];  // null when Wire slot
     public bool            IsWireMode         => Slots[SelectedIndex] == null;
+
+    // ── HUD constants ─────────────────────────────────────────────────────────
+
+    private const float SlotW   = 120f;
+    private const float SlotH   = 32f;
+    private const float SlotGap =  4f;
+
+    private static readonly Color ColNormal   = new Color(0.05f, 0.05f, 0.05f, 0.75f);
+    private static readonly Color ColSelected = new Color(0.55f, 0.45f, 0.00f, 0.90f);
+
+    // ── HUD state ─────────────────────────────────────────────────────────────
+
+    private Image[] _slotBgs;
+    private Text[]  _slotLabels;
+
+    // ── Unity ─────────────────────────────────────────────────────────────────
+
+    private void Start()
+    {
+        BuildHUD();
+    }
 
     private void Update()
     {
         HandleScrollInput();
         HandleNumberInput();
         HandleRotationInput();
+        RefreshHUD();
     }
+
+    // ── Input ─────────────────────────────────────────────────────────────────
 
     private void HandleScrollInput()
     {
@@ -56,37 +81,78 @@ public class Hotbar : MonoBehaviour
 
     private void HandleRotationInput()
     {
-        // Wire tool has no rotation.
         if (IsWireMode) return;
         if (Input.GetKeyDown(KeyCode.R))
             RotationSteps = (RotationSteps + 1) % 4;
     }
 
-    // ── HUD ───────────────────────────────────────────────────────────────────
+    // ── HUD building (called once in Start) ───────────────────────────────────
 
-    private void OnGUI()
+    private void BuildHUD()
     {
-        float slotW  = 120f;
-        float slotH  = 28f;
-        float totalW = Slots.Length * slotW;
-        float startX = (Screen.width - totalW) / 2f;
-        float y      = Screen.height - slotH - 8f;
+        float totalW = Slots.Length * SlotW + (Slots.Length - 1) * SlotGap;
+
+        // Root container — anchored bottom-centre.
+        var bar   = new GameObject("Hotbar");
+        bar.transform.SetParent(UIRoot.Canvas.transform, false);
+        var barRT = bar.AddComponent<RectTransform>();
+        barRT.anchorMin        = new Vector2(0.5f, 0f);
+        barRT.anchorMax        = new Vector2(0.5f, 0f);
+        barRT.pivot            = new Vector2(0.5f, 0f);
+        barRT.anchoredPosition = new Vector2(0f, 8f);
+        barRT.sizeDelta        = new Vector2(totalW, SlotH);
+
+        _slotBgs    = new Image[Slots.Length];
+        _slotLabels = new Text[Slots.Length];
 
         for (int i = 0; i < Slots.Length; i++)
         {
-            var oldColor = GUI.color;
-            GUI.color = (i == SelectedIndex) ? Color.yellow : Color.white;
+            // Slot panel
+            var slot   = new GameObject($"Slot{i + 1}");
+            slot.transform.SetParent(bar.transform, false);
+            var slotRT = slot.AddComponent<RectTransform>();
+            slotRT.anchorMin        = Vector2.zero;
+            slotRT.anchorMax        = Vector2.zero;
+            slotRT.pivot            = Vector2.zero;
+            slotRT.sizeDelta        = new Vector2(SlotW, SlotH);
+            slotRT.anchoredPosition = new Vector2(i * (SlotW + SlotGap), 0f);
 
+            _slotBgs[i]               = slot.AddComponent<Image>();
+            _slotBgs[i].color         = ColNormal;
+            _slotBgs[i].raycastTarget = false;
+
+            // Label
+            var labelGO = new GameObject("Label");
+            labelGO.transform.SetParent(slot.transform, false);
+            var labelRT   = labelGO.AddComponent<RectTransform>();
+            labelRT.anchorMin = Vector2.zero;
+            labelRT.anchorMax = Vector2.one;
+            labelRT.offsetMin = new Vector2(5f, 0f);
+            labelRT.offsetMax = new Vector2(-5f, 0f);
+
+            var label = labelGO.AddComponent<Text>();
+            if (UIRoot.Font != null) label.font = UIRoot.Font;
+            label.fontSize      = 12;
+            label.color         = Color.white;
+            label.alignment     = TextAnchor.MiddleLeft;
+            label.raycastTarget = false;
+            _slotLabels[i] = label;
+        }
+    }
+
+    // ── HUD update (called every frame) ───────────────────────────────────────
+
+    private void RefreshHUD()
+    {
+        for (int i = 0; i < Slots.Length; i++)
+        {
             string slotName = Slots[i] != null ? Slots[i].DisplayName : "Wire";
             string suffix   = (i == SelectedIndex && Slots[i] != null && RotationSteps != 0)
                 ? $" {RotationSteps * 90}°"
                 : "";
 
-            GUI.Label(
-                new Rect(startX + i * slotW, y, slotW, slotH),
-                $"[{i + 1}] {slotName}{suffix}");
-
-            GUI.color = oldColor;
+            _slotLabels[i].text = $"[{i + 1}] {slotName}{suffix}";
+            _slotBgs[i].color   = (i == SelectedIndex) ? ColSelected : ColNormal;
         }
     }
 }
