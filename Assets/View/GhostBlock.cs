@@ -33,7 +33,7 @@ public class GhostBlock : MonoBehaviour
 
     private void Update()
     {
-        if (!_raycaster.HasHit)
+        if (!_raycaster.HasHit || _hotbar.IsWireMode)
         {
             _cube.SetActive(false);
             return;

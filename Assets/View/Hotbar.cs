@@ -5,8 +5,9 @@
 //
 // Controls:
 //   Scroll wheel   — cycle through slots
-//   1 – 7          — jump directly to a slot
+//   1 – 8          — jump directly to a slot
 //   R              — rotate selected block 90° (0 → 90 → 180 → 270 → 0)
+//                    (no effect when Wire slot is active)
 
 using UnityEngine;
 
@@ -21,11 +22,13 @@ public class Hotbar : MonoBehaviour
         BlockCatalogue.BasicMiner,
         BlockCatalogue.ElectricFurnace,
         BlockCatalogue.AssemblerMk1,
+        null,   // slot 8 — Wire tool (no block definition)
     };
 
     public int             SelectedIndex      { get; private set; }
     public int             RotationSteps      { get; private set; }   // 0–3 → 0°/90°/180°/270°
-    public BlockDefinition SelectedDefinition => Slots[SelectedIndex];
+    public BlockDefinition SelectedDefinition => Slots[SelectedIndex];  // null when wire slot
+    public bool            IsWireMode         => Slots[SelectedIndex] == null;
 
     private void Update()
     {
@@ -53,6 +56,8 @@ public class Hotbar : MonoBehaviour
 
     private void HandleRotationInput()
     {
+        // Wire tool has no rotation.
+        if (IsWireMode) return;
         if (Input.GetKeyDown(KeyCode.R))
             RotationSteps = (RotationSteps + 1) % 4;
     }
@@ -72,13 +77,14 @@ public class Hotbar : MonoBehaviour
             var oldColor = GUI.color;
             GUI.color = (i == SelectedIndex) ? Color.yellow : Color.white;
 
-            string suffix = (i == SelectedIndex && RotationSteps != 0)
+            string slotName = Slots[i] != null ? Slots[i].DisplayName : "Wire";
+            string suffix   = (i == SelectedIndex && Slots[i] != null && RotationSteps != 0)
                 ? $" {RotationSteps * 90}°"
                 : "";
 
             GUI.Label(
                 new Rect(startX + i * slotW, y, slotW, slotH),
-                $"[{i + 1}] {Slots[i].DisplayName}{suffix}");
+                $"[{i + 1}] {slotName}{suffix}");
 
             GUI.color = oldColor;
         }

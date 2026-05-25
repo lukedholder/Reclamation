@@ -583,16 +583,22 @@ classDiagram
 classDiagram
     class PowerSystem {
         +Networks IReadOnlyDictionary
+        +WireConnections IReadOnlyCollection
         +CreateNetwork(constructId) PowerNetwork
         +GetOrCreateNetworkId(constructId) int
         +Register(Block)
         +Unregister(Block)
+        +ConnectPoles(poleA, poleB) bool
+        +DisconnectPoles(poleA, poleB) bool
+        +HasConnection(poleA, poleB) bool
+        +ConnectionCount(poleId) int
         +Tick(tickDelta, BlockTable)
         -TickNetwork(PowerNetwork, tickDelta, BlockTable)
         -ChargeBatteries(network, surplusKW, tickDelta, BlockTable)
         -DischargeBatteries(network, deficitKW, tickDelta, BlockTable) float
         -SetOperatingRates(network, rate, BlockTable)
         -PowerNetworkTable _table
+        -HashSet _connections
     }
 
     class PowerNetwork {
@@ -697,7 +703,7 @@ At 60 items/min (Mk1 belt) and 20 Hz ticks: one step every 20 ticks (1 second).
 | **Colliders** | `BoxCollider` on each `BlockView` child. Compounded automatically onto parent `Rigidbody`. |
 | **Grid model** | Bases/Outposts use integer grid (Foundation sets origin). Vehicles are freeform (any rotation). |
 | **Structural integrity** | Connectivity-only for V1 — no stress or load simulation. |
-| **Power wiring** | Auto-connects within pole range — no manual wire drawing. |
+| **Power wiring** | Explicit wire placement required — Satisfactory-style. Select the Wire tool (hotbar slot 8), click pole A then pole B to connect. Clicking already-connected poles disconnects them. Out-of-range or max-connections connections are blocked (red highlight). Power still flows within a construct regardless; wires are required visual connectors (cross-construct bridging deferred to docking). `PowerSystem` stores `HashSet<(int,int)> WireConnections`; `PowerWireView` draws only those. |
 | **Construct classification** | Recalculated on block place/remove events, not every tick. |
 | **Adjacency** | Face-adjacency only (6 directions). O(1) via `occupancy[gridPos + neighbour]` dictionary lookup. |
 | **What the simulation ticks** | Only PowerSystem, LogisticsSystem, MachineSystem. Blocks and constructs are spatial data — updated on place/remove events, never ticked. |

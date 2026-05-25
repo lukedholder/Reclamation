@@ -15,11 +15,13 @@ public class BlockHighlight : MonoBehaviour
     [SerializeField] private Material _highlightMaterial;
 
     private Raycaster  _raycaster;
+    private Hotbar     _hotbar;
     private GameObject _cube;
 
     private void Awake()
     {
         _raycaster = GetComponent<Raycaster>();
+        _hotbar    = GetComponent<Hotbar>();
 
         _cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
         _cube.name = "BlockHighlight";
@@ -30,7 +32,8 @@ public class BlockHighlight : MonoBehaviour
 
     private void Update()
     {
-        if (!_raycaster.HasHit)
+        // Wire tool draws its own coloured highlights — suppress this one.
+        if (!_raycaster.HasHit || _hotbar.IsWireMode)
         {
             _cube.SetActive(false);
             return;

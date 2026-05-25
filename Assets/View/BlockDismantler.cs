@@ -10,6 +10,7 @@ using UnityEngine;
 public class BlockDismantler : MonoBehaviour
 {
     private Raycaster  _raycaster;
+    private Hotbar     _hotbar;
 
     // Always reads the current Simulation so a save-load reset doesn't leave a stale reference.
     private Simulation Sim => GameManager.Instance.Simulation;
@@ -17,10 +18,13 @@ public class BlockDismantler : MonoBehaviour
     private void Awake()
     {
         _raycaster = GetComponent<Raycaster>();
+        _hotbar    = GetComponent<Hotbar>();
     }
 
     private void Update()
     {
+        // Wire tool owns right-click while active (cancels pending connection).
+        if (_hotbar.IsWireMode) return;
         if (Input.GetMouseButtonDown(1) && _raycaster.HasHit)
             TryDismantle();
     }

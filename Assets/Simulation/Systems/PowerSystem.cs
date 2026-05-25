@@ -25,11 +25,39 @@ using System.Collections.Generic;
 
 public class PowerSystem
 {
-    private readonly PowerNetworkTable _table = new PowerNetworkTable();
+    private readonly PowerNetworkTable      _table       = new PowerNetworkTable();
+    private readonly HashSet<(int, int)>    _connections = new HashSet<(int, int)>();
     private int _nextNetworkId = 1;
 
-    // Expose networks for debug GUI
-    public IReadOnlyDictionary<int, PowerNetwork> Networks => _table.ById;
+    // Expose networks for debug/view
+    public IReadOnlyDictionary<int, PowerNetwork>   Networks        => _table.ById;
+    // Explicit user-placed wire connections between pole IDs (order-normalised: lower ID first).
+    public IReadOnlyCollection<(int, int)>          WireConnections => _connections;
+
+    // ── Wire connections ──────────────────────────────────────────────────────
+
+    // Adds an explicit wire between two poles.  Returns false if already connected.
+    public bool ConnectPoles(int poleA, int poleB)
+        => _connections.Add(MakeKey(poleA, poleB));
+
+    // Removes an explicit wire.  Returns false if no connection existed.
+    public bool DisconnectPoles(int poleA, int poleB)
+        => _connections.Remove(MakeKey(poleA, poleB));
+
+    public bool HasConnection(int poleA, int poleB)
+        => _connections.Contains(MakeKey(poleA, poleB));
+
+    // Number of wires currently attached to a given pole.
+    public int ConnectionCount(int poleId)
+    {
+        int n = 0;
+        foreach (var (a, b) in _connections)
+            if (a == poleId || b == poleId) n++;
+        return n;
+    }
+
+    // Normalises so the lower ID is always first, making the pair order-independent.
+    private static (int, int) MakeKey(int a, int b) => a < b ? (a, b) : (b, a);
 
     // ── Network management ────────────────────────────────────────────────────
 
@@ -112,6 +140,17 @@ public class PowerSystem
         network.ConsumerIds.Remove(block.Id);
         network.PoleIds.Remove(block.Id);
         block.PowerNetworkId = -1;
+
+        // Drop every wire that was attached to this pole.
+        if (block.Definition.PowerInterface == PowerInterface.WireEndpoint)
+        {
+            var toRemove = new List<(int, int)>();
+            foreach (var (a, b) in _connections)
+                if (a == block.Id || b == block.Id)
+                    toRemove.Add((a, b));
+            foreach (var key in toRemove)
+                _connections.Remove(key);
+        }
     }
 
     // ── Tick ─────────────────────────────────────────────────────────────────
