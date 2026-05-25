@@ -27,7 +27,7 @@ public class BlockPlacer : MonoBehaviour
 
     private void Update()
     {
-        if (_hotbar.IsWireMode) return;    // Wire tool handles its own left-click
+        if (_hotbar.NoBlockActive) return;  // Wire tool or cancelled — no placement
         if (Input.GetMouseButtonDown(0) && _raycaster.HasHit)
             TryPlace();
     }

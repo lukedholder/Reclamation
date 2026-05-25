@@ -29,8 +29,11 @@ public class Hotbar : MonoBehaviour
 
     public int             SelectedIndex      { get; private set; }
     public int             RotationSteps      { get; private set; }   // 0–3 → 0°/90°/180°/270°
-    public BlockDefinition SelectedDefinition => Slots[SelectedIndex];  // null when Wire slot
+    public BlockDefinition SelectedDefinition => NoBlockActive ? null : Slots[SelectedIndex];
     public bool            IsWireMode         => Slots[SelectedIndex] == null;
+    public bool            NoBlockActive      => IsWireMode || _deselected;
+
+    private bool _deselected;
 
     // ── HUD constants ─────────────────────────────────────────────────────────
 
@@ -38,9 +41,10 @@ public class Hotbar : MonoBehaviour
     private const float SlotH   =  40f;
     private const float SlotGap =   4f;
 
-    private static readonly Color ColNormal    = new Color(0.05f, 0.05f, 0.05f, 0.75f);
-    private static readonly Color ColSelected  = new Color(0.55f, 0.45f, 0.00f, 0.90f);
-    private static readonly Color ColNumBadge  = new Color(1.00f, 1.00f, 1.00f, 0.50f);
+    private static readonly Color ColNormal     = new Color(0.05f, 0.05f, 0.05f, 0.75f);
+    private static readonly Color ColSelected   = new Color(0.55f, 0.45f, 0.00f, 0.90f);
+    private static readonly Color ColCancelled  = new Color(0.15f, 0.15f, 0.15f, 0.60f);
+    private static readonly Color ColNumBadge   = new Color(1.00f, 1.00f, 1.00f, 0.50f);
 
     // ── HUD state ─────────────────────────────────────────────────────────────
 
@@ -58,6 +62,7 @@ public class Hotbar : MonoBehaviour
     {
         HandleScrollInput();
         HandleNumberInput();
+        HandleDeselect();
         HandleRotationInput();
         RefreshHUD();
     }
@@ -67,23 +72,38 @@ public class Hotbar : MonoBehaviour
     private void HandleScrollInput()
     {
         float scroll = Input.GetAxis("Mouse ScrollWheel");
-        if (scroll > 0f) { SelectedIndex = (SelectedIndex + 1) % Slots.Length; RotationSteps = 0; }
-        if (scroll < 0f) { SelectedIndex = (SelectedIndex - 1 + Slots.Length) % Slots.Length; RotationSteps = 0; }
+        if (scroll > 0f) { SelectedIndex = (SelectedIndex + 1) % Slots.Length; RotationSteps = 0; _deselected = false; }
+        if (scroll < 0f) { SelectedIndex = (SelectedIndex - 1 + Slots.Length) % Slots.Length; RotationSteps = 0; _deselected = false; }
     }
 
     private void HandleNumberInput()
     {
         for (int i = 0; i < Slots.Length && i < 9; i++)
+        {
             if (Input.GetKeyDown(KeyCode.Alpha1 + i))
             {
-                if (SelectedIndex != i) RotationSteps = 0;
-                SelectedIndex = i;
+                if (i == SelectedIndex && !IsWireMode)
+                    _deselected = !_deselected;     // same slot again: toggle cancel
+                else
+                {
+                    if (SelectedIndex != i) RotationSteps = 0;
+                    SelectedIndex = i;
+                    _deselected   = false;           // switching slots always re-arms
+                }
             }
+        }
+    }
+
+    private void HandleDeselect()
+    {
+        // Q hard-cancels the active block without changing the selected slot.
+        if (Input.GetKeyDown(KeyCode.Q) && !IsWireMode)
+            _deselected = true;
     }
 
     private void HandleRotationInput()
     {
-        if (IsWireMode) return;
+        if (NoBlockActive) return;
         if (Input.GetKeyDown(KeyCode.R))
             RotationSteps = (RotationSteps + 1) % 4;
     }
@@ -159,7 +179,12 @@ public class Hotbar : MonoBehaviour
                 : "";
 
             _slotLabels[i].text = name + suffix;
-            _slotBgs[i].color   = (i == SelectedIndex) ? ColSelected : ColNormal;
+
+            Color bg;
+            if      (i != SelectedIndex) bg = ColNormal;
+            else if (_deselected)        bg = ColCancelled;
+            else                         bg = ColSelected;
+            _slotBgs[i].color = bg;
         }
     }
 }
