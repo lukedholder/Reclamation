@@ -8,6 +8,7 @@
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class BlockInfoHUD : MonoBehaviour
 {
@@ -16,11 +17,11 @@ public class BlockInfoHUD : MonoBehaviour
     private const float PadX    =   6f;
     private const float PadY    =   4f;
 
-    private Raycaster     _raycaster;
-    private GameObject    _panel;
-    private RectTransform _panelRT;
-    private Text          _text;
-    private StringBuilder _sb = new StringBuilder();
+    private Raycaster        _raycaster;
+    private GameObject       _panel;
+    private RectTransform    _panelRT;
+    private TextMeshProUGUI  _text;
+    private StringBuilder    _sb = new StringBuilder();
 
     // ── Unity ─────────────────────────────────────────────────────────────────
 
@@ -58,20 +59,13 @@ public class BlockInfoHUD : MonoBehaviour
         bg.raycastTarget = false;
 
         // Text sits inside the panel with padding.
-        var textGO = new GameObject("Text");
-        textGO.transform.SetParent(_panel.transform, false);
-        var textRT = textGO.AddComponent<RectTransform>();
+        _text = UIRoot.MakeText(_panel.transform, "Text", 12, TextAlignmentOptions.TopLeft);
+        _text.enableWordWrapping = true;
+        var textRT = _text.GetComponent<RectTransform>();
         textRT.anchorMin = Vector2.zero;
         textRT.anchorMax = Vector2.one;
         textRT.offsetMin = new Vector2( PadX,  PadY);
         textRT.offsetMax = new Vector2(-PadX, -PadY);
-
-        _text = textGO.AddComponent<Text>();
-        if (UIRoot.Font != null) _text.font = UIRoot.Font;
-        _text.fontSize      = 12;
-        _text.color         = Color.white;
-        _text.alignment     = TextAnchor.UpperLeft;
-        _text.raycastTarget = false;
 
         _panel.SetActive(false);
     }

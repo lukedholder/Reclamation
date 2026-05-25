@@ -2,7 +2,8 @@
     "name": "Reclamation.View",
     "rootNamespace": "",
     "references": [
-        "GUID:73efc934a77e9a14ea79821b7fac6dc6"
+        "GUID:73efc934a77e9a14ea79821b7fac6dc6",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

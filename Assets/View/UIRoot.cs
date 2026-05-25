@@ -4,25 +4,30 @@
 //
 // Other HUD components access the Canvas and Font through the static properties:
 //   UIRoot.Canvas — parent transform for all HUD elements
-//   UIRoot.Font   — built-in font, or the one assigned in the Inspector
+//   UIRoot.Font   — TMP font asset (LiberationSans SDF by default)
+//
+// Requires: TextMeshPro package installed.
+//           If Font is null at runtime, do:
+//             Window → TextMeshPro → Import TMP Essential Resources
 
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class UIRoot : MonoBehaviour
 {
-    [Tooltip("Optional — leave blank to use the built-in Unity font.")]
-    [SerializeField] private Font _font;
+    [Tooltip("Optional — leave blank to load LiberationSans SDF from TMP resources.")]
+    [SerializeField] private TMP_FontAsset _font;
 
-    public static Canvas Canvas { get; private set; }
-    public static Font   Font   { get; private set; }
+    public static Canvas        Canvas { get; private set; }
+    public static TMP_FontAsset Font   { get; private set; }
 
     private void Awake()
     {
         // Canvas
         var go = new GameObject("HUD Canvas");
         Canvas = go.AddComponent<Canvas>();
-        Canvas.renderMode  = RenderMode.ScreenSpaceOverlay;
+        Canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
         Canvas.sortingOrder = 100;
 
         // Scale relative to a 1920 × 1080 reference so elements stay the same
@@ -34,27 +39,39 @@ public class UIRoot : MonoBehaviour
 
         go.AddComponent<GraphicRaycaster>();
 
-        // Font: prefer Inspector-assigned → LegacyRuntime (Unity 2022+) → Arial.
+        // EventSystem — required for Canvas Button clicks.  Create only if absent.
+        if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
+        {
+            var esGO = new GameObject("EventSystem");
+            esGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            esGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        }
+
+        // Font: Inspector-assigned → TMP LiberationSans SDF (after Essential Resources import).
         Font = _font
-            ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
-            ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            ?? Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+
+        if (Font == null)
+            Debug.LogWarning("UIRoot: TMP font not found. " +
+                "Run Window → TextMeshPro → Import TMP Essential Resources.");
     }
 
     // ── Shared factory helpers ────────────────────────────────────────────────
 
-    // Creates a Text child with the shared font and common defaults.
-    public static Text MakeText(Transform parent, string goName,
-                                int fontSize, TextAnchor alignment = TextAnchor.UpperLeft)
+    // Creates a TextMeshProUGUI child with the shared font and common defaults.
+    public static TextMeshProUGUI MakeText(Transform parent, string goName,
+                                           float fontSize,
+                                           TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft)
     {
         var go = new GameObject(goName);
         go.transform.SetParent(parent, false);
-        var t = go.AddComponent<Text>();
+        var t = go.AddComponent<TextMeshProUGUI>();
         if (Font != null) t.font = Font;
-        t.fontSize       = fontSize;
-        t.color          = Color.white;
-        t.alignment      = alignment;
-        t.raycastTarget  = false;
-        t.supportRichText = false;
+        t.fontSize           = fontSize;
+        t.color              = Color.white;
+        t.alignment          = alignment;
+        t.raycastTarget      = false;
+        t.enableWordWrapping = false;
         return t;
     }
 

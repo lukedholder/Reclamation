@@ -70,4 +70,21 @@ public static class RecipeCatalogue
         },
         Outputs     = new List<ItemStack> { new ItemStack("circuit_board", 1) },
     };
+
+    // ── Catalogue enumeration ─────────────────────────────────────────────────
+
+    public static Recipe[] All() => new[]
+    {
+        SmeltIron, SmeltCopper,
+        IronGearWheel, CopperWire, CircuitBoard,
+    };
+
+    // Returns every recipe compatible with the given machine type.
+    public static Recipe[] ForMachineType(FunctionalType type)
+    {
+        var result = new System.Collections.Generic.List<Recipe>();
+        foreach (var r in All())
+            if (r.MachineType == type) result.Add(r);
+        return result.ToArray();
+    }
 }

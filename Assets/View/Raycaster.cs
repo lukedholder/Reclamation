@@ -6,7 +6,7 @@
 // Finds the child Camera automatically.
 
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
 
 public class Raycaster : MonoBehaviour
 {
@@ -15,8 +15,8 @@ public class Raycaster : MonoBehaviour
     public bool       HasHit { get; private set; }
     public RaycastHit Hit    { get; private set; }
 
-    private Camera _camera;
-    private Text   _aimLabel;
+    private Camera          _camera;
+    private TextMeshProUGUI _aimLabel;
 
     private void Awake()
     {
@@ -26,21 +26,13 @@ public class Raycaster : MonoBehaviour
     private void Start()
     {
         // Aim label — top-centre of screen.
-        var go = new GameObject("AimLabel");
-        go.transform.SetParent(UIRoot.Canvas.transform, false);
-        var rt = go.AddComponent<RectTransform>();
+        _aimLabel = UIRoot.MakeText(UIRoot.Canvas.transform, "AimLabel", 12, TextAlignmentOptions.Top);
+        var rt = _aimLabel.GetComponent<RectTransform>();
         rt.anchorMin        = new Vector2(0.5f, 1f);
         rt.anchorMax        = new Vector2(0.5f, 1f);
         rt.pivot            = new Vector2(0.5f, 1f);
         rt.anchoredPosition = new Vector2(0f, -8f);
         rt.sizeDelta        = new Vector2(400f, 24f);
-
-        _aimLabel = go.AddComponent<Text>();
-        if (UIRoot.Font != null) _aimLabel.font = UIRoot.Font;
-        _aimLabel.fontSize      = 12;
-        _aimLabel.color         = Color.white;
-        _aimLabel.alignment     = TextAnchor.UpperCenter;
-        _aimLabel.raycastTarget = false;
     }
 
     private void Update()

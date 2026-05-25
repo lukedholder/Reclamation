@@ -11,6 +11,7 @@
 
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class Hotbar : MonoBehaviour
 {
@@ -34,16 +35,17 @@ public class Hotbar : MonoBehaviour
     // ── HUD constants ─────────────────────────────────────────────────────────
 
     private const float SlotW   = 120f;
-    private const float SlotH   = 32f;
-    private const float SlotGap =  4f;
+    private const float SlotH   =  40f;
+    private const float SlotGap =   4f;
 
-    private static readonly Color ColNormal   = new Color(0.05f, 0.05f, 0.05f, 0.75f);
-    private static readonly Color ColSelected = new Color(0.55f, 0.45f, 0.00f, 0.90f);
+    private static readonly Color ColNormal    = new Color(0.05f, 0.05f, 0.05f, 0.75f);
+    private static readonly Color ColSelected  = new Color(0.55f, 0.45f, 0.00f, 0.90f);
+    private static readonly Color ColNumBadge  = new Color(1.00f, 1.00f, 1.00f, 0.50f);
 
     // ── HUD state ─────────────────────────────────────────────────────────────
 
-    private Image[] _slotBgs;
-    private Text[]  _slotLabels;
+    private Image[]          _slotBgs;
+    private TextMeshProUGUI[] _slotLabels;
 
     // ── Unity ─────────────────────────────────────────────────────────────────
 
@@ -103,7 +105,7 @@ public class Hotbar : MonoBehaviour
         barRT.sizeDelta        = new Vector2(totalW, SlotH);
 
         _slotBgs    = new Image[Slots.Length];
-        _slotLabels = new Text[Slots.Length];
+        _slotLabels = new TextMeshProUGUI[Slots.Length];
 
         for (int i = 0; i < Slots.Length; i++)
         {
@@ -121,21 +123,26 @@ public class Hotbar : MonoBehaviour
             _slotBgs[i].color         = ColNormal;
             _slotBgs[i].raycastTarget = false;
 
-            // Label
-            var labelGO = new GameObject("Label");
-            labelGO.transform.SetParent(slot.transform, false);
-            var labelRT   = labelGO.AddComponent<RectTransform>();
-            labelRT.anchorMin = Vector2.zero;
-            labelRT.anchorMax = Vector2.one;
-            labelRT.offsetMin = new Vector2(5f, 0f);
-            labelRT.offsetMax = new Vector2(-5f, 0f);
+            // Slot-number badge — explicit rect, top-left corner, static.
+            // Slot-number badge — top-left corner, static.
+            var numText = UIRoot.MakeText(slot.transform, "Num", 9, TextAlignmentOptions.TopLeft);
+            var numRT   = numText.GetComponent<RectTransform>();
+            numRT.anchorMin        = Vector2.zero;
+            numRT.anchorMax        = Vector2.zero;
+            numRT.pivot            = Vector2.zero;
+            numRT.anchoredPosition = new Vector2(4f, SlotH - 14f);
+            numRT.sizeDelta        = new Vector2(20f, 14f);
+            numText.color = ColNumBadge;
+            numText.text  = (i + 1).ToString();
 
-            var label = labelGO.AddComponent<Text>();
-            if (UIRoot.Font != null) label.font = UIRoot.Font;
-            label.fontSize      = 12;
-            label.color         = Color.white;
-            label.alignment     = TextAnchor.MiddleLeft;
-            label.raycastTarget = false;
+            // Item name — full-slot rect, centred, updated every frame.
+            var label   = UIRoot.MakeText(slot.transform, "Label", 12, TextAlignmentOptions.Center);
+            var labelRT = label.GetComponent<RectTransform>();
+            labelRT.anchorMin        = Vector2.zero;
+            labelRT.anchorMax        = Vector2.zero;
+            labelRT.pivot            = Vector2.zero;
+            labelRT.anchoredPosition = Vector2.zero;
+            labelRT.sizeDelta        = new Vector2(SlotW, SlotH);
             _slotLabels[i] = label;
         }
     }
@@ -146,12 +153,12 @@ public class Hotbar : MonoBehaviour
     {
         for (int i = 0; i < Slots.Length; i++)
         {
-            string slotName = Slots[i] != null ? Slots[i].DisplayName : "Wire";
-            string suffix   = (i == SelectedIndex && Slots[i] != null && RotationSteps != 0)
-                ? $" {RotationSteps * 90}°"
+            string name   = Slots[i] != null ? Slots[i].DisplayName : "Wire Tool";
+            string suffix = (i == SelectedIndex && Slots[i] != null && RotationSteps != 0)
+                ? $" ({RotationSteps * 90}°)"
                 : "";
 
-            _slotLabels[i].text = $"[{i + 1}] {slotName}{suffix}";
+            _slotLabels[i].text = name + suffix;
             _slotBgs[i].color   = (i == SelectedIndex) ? ColSelected : ColNormal;
         }
     }
