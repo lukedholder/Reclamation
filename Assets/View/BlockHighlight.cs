@@ -48,6 +48,7 @@ public class BlockHighlight : MonoBehaviour
 
         _cube.SetActive(true);
         _cube.transform.position   = blockView.transform.position;
+        _cube.transform.rotation   = blockView.transform.rotation;
         _cube.transform.localScale = blockView.transform.localScale + Vector3.one * Bias;
     }
 }

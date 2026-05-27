@@ -14,7 +14,11 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "PowerShell(ls -Path \"$env:TEMP\" -Filter \"SpaceCrusade\" -ErrorAction SilentlyContinue | Select-Object FullName)",
       "Bash(ls -la /tmp/SpaceCrusade/Assets/Scripts/Runtime/Factory/)",
-      "PowerShell(pandoc \"C:\\\\dev\\\\Reclamation\\\\docs\\\\Space_Crusade_SDD.docx\" -t plain --wrap=none 2>&1)"
+      "PowerShell(pandoc \"C:\\\\dev\\\\Reclamation\\\\docs\\\\Space_Crusade_SDD.docx\" -t plain --wrap=none 2>&1)",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('docx'\\); console.log\\('ok'\\)\")",
+      "Bash(npm root *)",
+      "Bash(node -e \"const m = require\\('$\\(npm root -g\\)/docx'\\); console.log\\('ok'\\)\")"
     ]
   }
 }

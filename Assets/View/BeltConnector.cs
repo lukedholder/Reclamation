@@ -199,16 +199,20 @@ public class BeltConnector : MonoBehaviour
         float hx = def.SizeX * CellSize * 0.5f;
         float hy = def.SizeY * CellSize * 0.5f;
         float hz = def.SizeZ * CellSize * 0.5f;
-        return port.Face switch
+
+        // Offset in construct-local space (block localRotation is always identity,
+        // so bv.transform.rotation == the construct's world rotation).
+        Vector3 localOffset = port.Face switch
         {
-            FaceDir.PosX => c + new Vector3( hx, 0,  0),
-            FaceDir.NegX => c + new Vector3(-hx, 0,  0),
-            FaceDir.PosY => c + new Vector3( 0,  hy, 0),
-            FaceDir.NegY => c + new Vector3( 0, -hy, 0),
-            FaceDir.PosZ => c + new Vector3( 0,  0,  hz),
-            FaceDir.NegZ => c + new Vector3( 0,  0, -hz),
-            _            => c,
+            FaceDir.PosX => new Vector3( hx, 0,  0),
+            FaceDir.NegX => new Vector3(-hx, 0,  0),
+            FaceDir.PosY => new Vector3( 0,  hy, 0),
+            FaceDir.NegY => new Vector3( 0, -hy, 0),
+            FaceDir.PosZ => new Vector3( 0,  0,  hz),
+            FaceDir.NegZ => new Vector3( 0,  0, -hz),
+            _            => Vector3.zero,
         };
+        return c + bv.transform.rotation * localOffset;
     }
 
     private static PortDefinition NearestPort(BlockView bv, Vector3 hitPoint)

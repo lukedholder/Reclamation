@@ -39,13 +39,31 @@ public class GhostBlock : MonoBehaviour
             return;
         }
 
-        var def = _hotbar.SelectedDefinition;
-        int rot = _hotbar.RotationSteps;
-        var (sx, sy, sz) = EffectiveSize(def, rot);
+        var  def       = _hotbar.SelectedDefinition;
+        var  blockView = _raycaster.Hit.collider.GetComponent<BlockView>();
+        bool onBlock   = blockView != null;
 
         _cube.SetActive(true);
-        _cube.transform.position   = ComputeGhostCenter(def, rot);
-        _cube.transform.localScale = new Vector3(sx * CellSize, sy * CellSize, sz * CellSize);
+
+        if (onBlock)
+        {
+            // Construct grid: snap to 90° steps, swap X/Z on odd steps.
+            // Ghost orientation = construct's world rotation × the player's relative 90° step.
+            int rot          = _hotbar.RotationSteps;
+            var (sx, sy, sz) = EffectiveSize(def, rot);
+            _cube.transform.localScale = new Vector3(sx * CellSize, sy * CellSize, sz * CellSize);
+            _cube.transform.rotation   = blockView.transform.parent.rotation
+                                         * Quaternion.Euler(0f, rot * 90f, 0f);
+        }
+        else
+        {
+            // Terrain: arbitrary 15° rotation — apply as transform Y, no size swap.
+            _cube.transform.localScale = new Vector3(def.SizeX * CellSize, def.SizeY * CellSize, def.SizeZ * CellSize);
+            _cube.transform.rotation   = Quaternion.Euler(0f, _hotbar.RotationAngleY, 0f);
+        }
+
+        // ComputeGhostCenter uses RotationSteps for block-face snapping; terrain path ignores it.
+        _cube.transform.position = ComputeGhostCenter(def, _hotbar.RotationSteps);
     }
 
     // Returns the block's world-space cell footprint after applying rotSteps 90° Y-axis turns.
@@ -61,59 +79,51 @@ public class GhostBlock : MonoBehaviour
     {
         var hit       = _raycaster.Hit;
         var blockView = hit.collider.GetComponent<BlockView>();
-
         var (sx, sy, sz) = EffectiveSize(def, rot);
 
         // ── Terrain hit ───────────────────────────────────────────────────────
         if (blockView == null)
-        {
-            return new Vector3(
-                hit.point.x,
-                hit.point.y + sy * 0.5f * CellSize,
-                hit.point.z);
-        }
+            return new Vector3(hit.point.x, hit.point.y + sy * 0.5f * CellSize, hit.point.z);
 
-        // ── Block face hit ────────────────────────────────────────────────────
-        // Identify the dominant axis of the hit normal.
-        var    n  = hit.normal;
-        float  ax = Mathf.Abs(n.x), ay = Mathf.Abs(n.y), az = Mathf.Abs(n.z);
-        int    axis = (ax >= ay && ax >= az) ? 0 : (ay >= az ? 1 : 2);
+        // ── Block face hit — all maths in construct-local space ───────────────
+        // Using InverseTransformPoint/Direction means this works for rotated constructs
+        // (e.g. a construct placed on terrain at a 15° or 30° Y-angle).
+        Transform constructTF = blockView.transform.parent;
 
-        var   hitDef    = blockView.Block.Definition;
-        float hitHalf   = new float[] { hitDef.SizeX, hitDef.SizeY, hitDef.SizeZ }[axis] * 0.5f * CellSize;
-        float newHalf   = new float[] { sx,            sy,            sz            }[axis] * 0.5f * CellSize;
-        float normalDir = axis == 0 ? n.x : (axis == 1 ? n.y : n.z);
+        // Face normal in construct-local space — identifies which face was hit.
+        Vector3 localNorm = constructTF.InverseTransformDirection(hit.normal);
+        float   lnx = Mathf.Abs(localNorm.x), lny = Mathf.Abs(localNorm.y), lnz = Mathf.Abs(localNorm.z);
+        int     axis = (lnx >= lny && lnx >= lnz) ? 0 : (lny >= lnz ? 1 : 2);
+        float   normalDir = axis == 0 ? localNorm.x : (axis == 1 ? localNorm.y : localNorm.z);
 
-        Vector3 hitCenter = blockView.transform.position;
+        var   hitDef = blockView.Block.Definition;
+        int[] hGrid  = { blockView.Block.GridPosition.X, blockView.Block.GridPosition.Y, blockView.Block.GridPosition.Z };
+        int[] hSize  = { hitDef.SizeX, hitDef.SizeY, hitDef.SizeZ };
+        int[] nSize  = { sx, sy, sz };
+        float hitHalf = hSize[axis] * 0.5f * CellSize;
+        float newHalf = nSize[axis] * 0.5f * CellSize;
 
-        // Construct grid origin — the world point that maps to GridPos(0,0,0).
-        Vector3 origin = blockView.transform.parent.position;
+        // Hit block's centre and hit point, both in construct-local space.
+        Vector3 localHitCenter = new Vector3(
+            (hGrid[0] + hSize[0] * 0.5f) * CellSize,
+            (hGrid[1] + hSize[1] * 0.5f) * CellSize,
+            (hGrid[2] + hSize[2] * 0.5f) * CellSize);
+        Vector3 localHit = constructTF.InverseTransformPoint(hit.point);
 
-        // Hit point in construct-local space.
-        Vector3 local = hit.point - origin;
-
-        // For each axis: constrain the face axis, snap the two free axes to the grid.
         float Constrain(float center, float sign) => center + sign * (hitHalf + newHalf);
-        float Snap(float originCoord, float localCoord, int cells)
+        float SnapLocal(float coord, int cells)
         {
-            int grid = Mathf.RoundToInt(localCoord / CellSize - cells * 0.5f);
-            return originCoord + (grid + cells * 0.5f) * CellSize;
+            int g = Mathf.RoundToInt(coord / CellSize - cells * 0.5f);
+            return (g + cells * 0.5f) * CellSize;
         }
 
-        return axis switch
+        Vector3 localResult = axis switch
         {
-            0 => new Vector3(
-                    Constrain(hitCenter.x, Mathf.Sign(normalDir)),
-                    Snap(origin.y, local.y, sy),
-                    Snap(origin.z, local.z, sz)),
-            1 => new Vector3(
-                    Snap(origin.x, local.x, sx),
-                    Constrain(hitCenter.y, Mathf.Sign(normalDir)),
-                    Snap(origin.z, local.z, sz)),
-            _ => new Vector3(
-                    Snap(origin.x, local.x, sx),
-                    Snap(origin.y, local.y, sy),
-                    Constrain(hitCenter.z, Mathf.Sign(normalDir))),
+            0 => new Vector3(Constrain(localHitCenter.x, Mathf.Sign(normalDir)), SnapLocal(localHit.y, sy), SnapLocal(localHit.z, sz)),
+            1 => new Vector3(SnapLocal(localHit.x, sx), Constrain(localHitCenter.y, Mathf.Sign(normalDir)), SnapLocal(localHit.z, sz)),
+            _ => new Vector3(SnapLocal(localHit.x, sx), SnapLocal(localHit.y, sy), Constrain(localHitCenter.z, Mathf.Sign(normalDir))),
         };
+
+        return constructTF.TransformPoint(localResult);
     }
 }

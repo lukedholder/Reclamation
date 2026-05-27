@@ -5,9 +5,8 @@
 //        UIRoot must be in the scene (attached to GameManager or similar).
 //
 // Controls:
-//   Scroll wheel   — cycle through slots
-//   1 – 9          — jump directly to a slot
-//   R              — rotate selected block 90° (no effect on tool slots)
+//   Scroll wheel   — rotate selected block (15° on terrain, 90° on construct grids)
+//   1 – 9          — jump directly to a slot; same slot again toggles deselect
 
 using UnityEngine;
 using UnityEngine.UI;
@@ -29,14 +28,17 @@ public class Hotbar : MonoBehaviour
     };
 
     public int             SelectedIndex      { get; private set; }
-    public int             RotationSteps      { get; private set; }   // 0–3 → 0°/90°/180°/270°
+    public float           RotationAngleY     => _rotationAngleY;    // 0°–345° in 15° steps on terrain
+    public int             RotationSteps      => Mathf.RoundToInt(_rotationAngleY / 90f) % 4; // 0–3
     public BlockDefinition SelectedDefinition => NoBlockActive ? null : Slots[SelectedIndex];
     public bool            IsWireMode         => SelectedIndex == 7;   // slot 8 key
     public bool            IsBeltMode         => SelectedIndex == 8;   // slot 9 key
     public bool            IsToolMode         => IsWireMode || IsBeltMode;
     public bool            NoBlockActive      => IsToolMode || _deselected;
 
-    private bool _deselected;
+    private bool      _deselected;
+    private float     _rotationAngleY;   // degrees, kept in [0, 360)
+    private Raycaster _raycaster;
 
     // ── HUD constants ─────────────────────────────────────────────────────────
 
@@ -56,6 +58,11 @@ public class Hotbar : MonoBehaviour
 
     // ── Unity ─────────────────────────────────────────────────────────────────
 
+    private void Awake()
+    {
+        _raycaster = GetComponent<Raycaster>();
+    }
+
     private void Start()
     {
         BuildHUD();
@@ -66,7 +73,6 @@ public class Hotbar : MonoBehaviour
         HandleScrollInput();
         HandleNumberInput();
         HandleDeselect();
-        HandleRotationInput();
         RefreshHUD();
     }
 
@@ -75,8 +81,20 @@ public class Hotbar : MonoBehaviour
     private void HandleScrollInput()
     {
         float scroll = Input.GetAxis("Mouse ScrollWheel");
-        if (scroll > 0f) { SelectedIndex = (SelectedIndex + 1) % Slots.Length; RotationSteps = 0; _deselected = false; }
-        if (scroll < 0f) { SelectedIndex = (SelectedIndex - 1 + Slots.Length) % Slots.Length; RotationSteps = 0; _deselected = false; }
+        if (scroll == 0f || NoBlockActive) return;
+
+        // Step size: 90° when hovering a construct block, 15° on terrain.
+        bool onConstruct = _raycaster != null && _raycaster.HasHit &&
+                           _raycaster.Hit.collider != null &&
+                           _raycaster.Hit.collider.GetComponent<BlockView>() != null;
+
+        float step = onConstruct ? 90f : 15f;
+        float dir  = scroll > 0f ? 1f : -1f;
+        _rotationAngleY = (_rotationAngleY + dir * step + 360f) % 360f;
+
+        // Snap to the nearest 90° multiple when on a construct grid.
+        if (onConstruct)
+            _rotationAngleY = (Mathf.Round(_rotationAngleY / 90f) % 4) * 90f;
     }
 
     private void HandleNumberInput()
@@ -89,7 +107,7 @@ public class Hotbar : MonoBehaviour
                     _deselected = !_deselected;     // same slot again: toggle cancel
                 else
                 {
-                    if (SelectedIndex != i) RotationSteps = 0;
+                    if (SelectedIndex != i) _rotationAngleY = 0f;
                     SelectedIndex = i;
                     _deselected   = false;           // switching slots always re-arms
                 }
@@ -102,13 +120,6 @@ public class Hotbar : MonoBehaviour
         // Q hard-cancels the active block without changing the selected slot.
         if (Input.GetKeyDown(KeyCode.Q) && Slots[SelectedIndex] != null)
             _deselected = true;
-    }
-
-    private void HandleRotationInput()
-    {
-        if (NoBlockActive) return;
-        if (Input.GetKeyDown(KeyCode.R))
-            RotationSteps = (RotationSteps + 1) % 4;
     }
 
     // ── HUD building (called once in Start) ───────────────────────────────────
@@ -179,8 +190,8 @@ public class Hotbar : MonoBehaviour
             string name   = Slots[i] != null ? Slots[i].DisplayName
                           : i == 7           ? "Wire Tool"
                           :                   "Belt Tool";
-            string suffix = (i == SelectedIndex && Slots[i] != null && RotationSteps != 0)
-                ? $" ({RotationSteps * 90}°)"
+            string suffix = (i == SelectedIndex && Slots[i] != null && _rotationAngleY != 0f)
+                ? $" ({_rotationAngleY:F0}°)"
                 : "";
 
             _slotLabels[i].text = name + suffix;
