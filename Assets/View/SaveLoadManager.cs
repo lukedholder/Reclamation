@@ -1,10 +1,21 @@
-// Saves and loads the full scene (all constructs and their blocks) to a JSON file.
+// Saves and loads the full scene to a JSON file.
 //
-// Setup: attach to any persistent GameObject (e.g. GameManager).
+// What is saved:
+//   • Constructs — world position + Y-axis rotation
+//   • Blocks     — block type, grid position, rotation steps, recipe ID
+//   • Wires      — every explicit wire connection in PowerSystem
+//   • Belts      — every active BeltSegment in LogisticsSystem
+//
+// What is NOT saved (V1): machine buffer contents, battery charge, cycle progress.
+// These reset on load: miners re-bind to ore nodes by world position, other machines
+// restart their production cycle empty.
+//
+// Block IDs are reassigned on reload, so wires and belts reference blocks by
+// (constructIndex in file, gridX, gridY, gridZ) — a stable key regardless of ID churn.
 //
 // Controls:
-//   F5   — save to persistentDataPath/save.json
-//   F9   — load from save.json (clears the current scene first)
+//   F5 — save to persistentDataPath/save.json
+//   F9 — load from save.json
 
 using System.Collections.Generic;
 using System.IO;
@@ -16,15 +27,22 @@ public class SaveLoadManager : MonoBehaviour
     private static string SavePath =>
         Path.Combine(Application.persistentDataPath, "save.json");
 
-    // Built once from BlockCatalogue.All() — automatically includes any new block types.
-    private static readonly Dictionary<string, BlockDefinition> DefById = BuildDefById();
+    // Built once at startup from the catalogues — automatically covers new entries.
+    private static readonly Dictionary<string, BlockDefinition> DefById    = BuildDefById();
+    private static readonly Dictionary<string, Recipe>          RecipeById = BuildRecipeById();
 
     private static Dictionary<string, BlockDefinition> BuildDefById()
     {
-        var dict = new Dictionary<string, BlockDefinition>();
-        foreach (var def in BlockCatalogue.All())
-            dict[def.Id] = def;
-        return dict;
+        var d = new Dictionary<string, BlockDefinition>();
+        foreach (var def in BlockCatalogue.All()) d[def.Id] = def;
+        return d;
+    }
+
+    private static Dictionary<string, Recipe> BuildRecipeById()
+    {
+        var d = new Dictionary<string, Recipe>();
+        foreach (var r in RecipeCatalogue.All()) d[r.Id] = r;
+        return d;
     }
 
     // ── Unity ─────────────────────────────────────────────────────────────────
@@ -35,18 +53,21 @@ public class SaveLoadManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F9)) Load();
     }
 
-    // ── Serialisable data structures ──────────────────────────────────────────
+    // ── Serialisable data types ───────────────────────────────────────────────
 
     [System.Serializable]
     private class SaveFile
     {
         public List<ConstructData> constructs = new List<ConstructData>();
+        public List<WireData>      wires      = new List<WireData>();
+        public List<BeltData>      belts      = new List<BeltData>();
     }
 
     [System.Serializable]
     private class ConstructData
     {
-        public float originX, originY, originZ;
+        public float posX, posY, posZ;
+        public float rotY;                 // Y-axis Euler angle in degrees
         public List<BlockData> blocks = new List<BlockData>();
     }
 
@@ -54,22 +75,52 @@ public class SaveLoadManager : MonoBehaviour
     private class BlockData
     {
         public string defId;
-        public int gx, gy, gz, rot;
+        public int    gx, gy, gz;
+        public int    rot;
+        public string recipeId;            // empty for structural/power blocks and miners
+    }
+
+    // Wires and belts store block references as (constructIndex, gridPos) so they
+    // survive the ID reassignment that happens on every reload.
+    [System.Serializable]
+    private class WireData
+    {
+        public int conA, gxA, gyA, gzA;
+        public int conB, gxB, gyB, gzB;
+    }
+
+    [System.Serializable]
+    private class BeltData
+    {
+        public int   srcCon, srcGx, srcGy, srcGz;
+        public int   srcPort;
+        public int   dstCon, dstGx, dstGy, dstGz;
+        public int   dstPort;
+        public int   lengthInCells;
+        public float throughput;
     }
 
     // ── Save ──────────────────────────────────────────────────────────────────
 
     private void Save()
     {
+        var sim  = GameManager.Instance.Simulation;
         var file = new SaveFile();
 
-        foreach (var cv in FindObjectsOfType<ConstructView>())
+        // Stable block reference: blockId → (constructIndex in file, gridPos).
+        var blockRef = new Dictionary<int, (int con, int gx, int gy, int gz)>();
+
+        var cvList = new List<ConstructView>(FindObjectsOfType<ConstructView>());
+
+        for (int ci = 0; ci < cvList.Count; ci++)
         {
-            var cd = new ConstructData
+            var cv  = cvList[ci];
+            var cd  = new ConstructData
             {
-                originX = cv.transform.position.x,
-                originY = cv.transform.position.y,
-                originZ = cv.transform.position.z,
+                posX = cv.transform.position.x,
+                posY = cv.transform.position.y,
+                posZ = cv.transform.position.z,
+                rotY = cv.transform.eulerAngles.y,
             };
 
             foreach (Transform child in cv.transform)
@@ -80,19 +131,51 @@ public class SaveLoadManager : MonoBehaviour
                 var b = bv.Block;
                 cd.blocks.Add(new BlockData
                 {
-                    defId = b.Definition.Id,
-                    gx    = b.GridPosition.X,
-                    gy    = b.GridPosition.Y,
-                    gz    = b.GridPosition.Z,
-                    rot   = b.RotationSteps,
+                    defId    = b.Definition.Id,
+                    gx       = b.GridPosition.X,
+                    gy       = b.GridPosition.Y,
+                    gz       = b.GridPosition.Z,
+                    rot      = b.RotationSteps,
+                    recipeId = b.MachineState?.ActiveRecipe?.Id ?? "",
                 });
+
+                blockRef[b.Id] = (ci, b.GridPosition.X, b.GridPosition.Y, b.GridPosition.Z);
             }
 
             file.constructs.Add(cd);
         }
 
+        // Wires.
+        foreach (var (idA, idB) in sim.Power.WireConnections)
+        {
+            if (!blockRef.TryGetValue(idA, out var rA)) continue;
+            if (!blockRef.TryGetValue(idB, out var rB)) continue;
+            file.wires.Add(new WireData
+            {
+                conA = rA.con, gxA = rA.gx, gyA = rA.gy, gzA = rA.gz,
+                conB = rB.con, gxB = rB.gx, gyB = rB.gy, gzB = rB.gz,
+            });
+        }
+
+        // Belts.
+        foreach (var belt in sim.Logistics.Belts.Values)
+        {
+            if (!blockRef.TryGetValue(belt.SourceBlockId, out var rS)) continue;
+            if (!blockRef.TryGetValue(belt.DestBlockId,   out var rD)) continue;
+            file.belts.Add(new BeltData
+            {
+                srcCon = rS.con, srcGx = rS.gx, srcGy = rS.gy, srcGz = rS.gz,
+                srcPort = belt.SourcePortIndex,
+                dstCon = rD.con, dstGx = rD.gx, dstGy = rD.gy, dstGz = rD.gz,
+                dstPort = belt.DestPortIndex,
+                lengthInCells = belt.LengthInCells,
+                throughput    = belt.ThroughputPerMin,
+            });
+        }
+
         File.WriteAllText(SavePath, JsonUtility.ToJson(file, prettyPrint: true));
-        Debug.Log($"[Save] {file.constructs.Count} construct(s) → {SavePath}");
+        Debug.Log($"[Save] {file.constructs.Count} construct(s), " +
+                  $"{file.wires.Count} wire(s), {file.belts.Count} belt(s) → {SavePath}");
     }
 
     // ── Load ──────────────────────────────────────────────────────────────────
@@ -105,23 +188,25 @@ public class SaveLoadManager : MonoBehaviour
             return;
         }
 
-        // Clear the scene.
+        // Destroy existing scene constructs (ore nodes and the terrain stay).
         foreach (var cv in FindObjectsOfType<ConstructView>())
             Destroy(cv.gameObject);
 
-        // Fresh simulation — old block/construct IDs are discarded.
-        var sim = GameManager.Instance.ResetSimulation();
+        var sim  = GameManager.Instance.ResetSimulation();
+        var file = JsonUtility.FromJson<SaveFile>(File.ReadAllText(SavePath));
 
-        // Rebuild from file.
-        var file       = JsonUtility.FromJson<SaveFile>(File.ReadAllText(SavePath));
-        int blockCount = 0;
+        // Reverse lookup: (constructIndex, gridPos) → new block ID.
+        var blockLookup = new Dictionary<(int con, int gx, int gy, int gz), int>();
+        int blockCount  = 0;
 
-        foreach (var cd in file.constructs)
+        for (int ci = 0; ci < file.constructs.Count; ci++)
         {
-            var simConstruct = sim.CreateConstruct();
+            var cd = file.constructs[ci];
 
+            var simConstruct = sim.CreateConstruct();
             var cvGO = new GameObject();
-            cvGO.transform.position = new Vector3(cd.originX, cd.originY, cd.originZ);
+            cvGO.transform.position = new Vector3(cd.posX, cd.posY, cd.posZ);
+            cvGO.transform.rotation = Quaternion.Euler(0f, cd.rotY, 0f);
             var cv = cvGO.AddComponent<ConstructView>();
             cv.Init(simConstruct);
 
@@ -129,12 +214,12 @@ public class SaveLoadManager : MonoBehaviour
             {
                 if (!DefById.TryGetValue(bd.defId, out var def))
                 {
-                    Debug.LogWarning($"[Load] Unknown block id '{bd.defId}' — skipped.");
+                    Debug.LogWarning($"[Load] Unknown block def '{bd.defId}' — skipped.");
                     continue;
                 }
 
-                var gridPos = new GridPos(bd.gx, bd.gy, bd.gz);
-                var block   = sim.PlaceBlock(def, simConstruct.Id, gridPos, bd.rot);
+                var block = sim.PlaceBlock(def, simConstruct.Id,
+                                           new GridPos(bd.gx, bd.gy, bd.gz), bd.rot);
 
                 bool swap = (bd.rot & 1) == 1;
                 int sx = swap ? def.SizeZ : def.SizeX;
@@ -150,10 +235,58 @@ public class SaveLoadManager : MonoBehaviour
                     (bd.gz + sz * 0.5f) * CellSize);
                 go.transform.localScale = new Vector3(sx * CellSize, sy * CellSize, sz * CellSize);
                 go.AddComponent<BlockView>().Init(block);
+
+                blockLookup[(ci, bd.gx, bd.gy, bd.gz)] = block.Id;
+
+                // Miners re-bind to the ore node under their world-space footprint.
+                if (def.FunctionalType == FunctionalType.Miner)
+                    TryBindMiner(sim, block, def, go.transform.position);
+
+                // Assemblers / Furnaces restore their recipe by ID.
+                else if (!string.IsNullOrEmpty(bd.recipeId)
+                         && RecipeById.TryGetValue(bd.recipeId, out var recipe))
+                    sim.Machines.Get(block.Id)?.SetRecipe(recipe);
+
                 blockCount++;
             }
         }
 
-        Debug.Log($"[Load] {file.constructs.Count} construct(s), {blockCount} block(s) restored.");
+        // Restore wire connections.
+        int wireCount = 0;
+        foreach (var wd in file.wires)
+        {
+            if (!blockLookup.TryGetValue((wd.conA, wd.gxA, wd.gyA, wd.gzA), out int idA)) continue;
+            if (!blockLookup.TryGetValue((wd.conB, wd.gxB, wd.gyB, wd.gzB), out int idB)) continue;
+            sim.Power.ConnectBlocks(idA, idB);
+            wireCount++;
+        }
+
+        // Restore belt connections.
+        int beltCount = 0;
+        foreach (var bd in file.belts)
+        {
+            if (!blockLookup.TryGetValue((bd.srcCon, bd.srcGx, bd.srcGy, bd.srcGz), out int srcId)) continue;
+            if (!blockLookup.TryGetValue((bd.dstCon, bd.dstGx, bd.dstGy, bd.dstGz), out int dstId)) continue;
+            sim.Logistics.Connect(srcId, bd.srcPort, dstId, bd.dstPort,
+                                  bd.lengthInCells, bd.throughput);
+            beltCount++;
+        }
+
+        Debug.Log($"[Load] {file.constructs.Count} construct(s), {blockCount} block(s), " +
+                  $"{wireCount} wire(s), {beltCount} belt(s) restored.");
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // Mirrors BlockPlacer.TryBindMinerToNode — called on load to restore miner→node binding.
+    private static void TryBindMiner(Simulation sim, Block block, BlockDefinition def, Vector3 worldCenter)
+    {
+        var node = OreNode.FindUnder(worldCenter, def.SizeX, def.SizeZ);
+        if (node == null) return;
+        var miner = sim.Machines.Get<MinerMachine>(block.Id);
+        if (miner == null) return;
+        var mp    = def.Params as MinerParams;
+        float rate = mp != null ? mp.ExtractRatePerSecond : node.ExtractRate;
+        miner.SetResourceNode(node.ResourceId, 1f / rate, 1);
     }
 }
