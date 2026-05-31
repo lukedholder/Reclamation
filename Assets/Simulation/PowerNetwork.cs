@@ -1,11 +1,9 @@
-// A single electrical power network within a construct.
-// A construct may own multiple independent networks — they do NOT automatically merge
-// when two constructs join. Power infrastructure must be explicitly connected via poles.
+// A single electrical power network.
+// Networks are formed by explicit wire connections: any group of power blocks reachable
+// from each other through wires shares one network.  Construct boundaries are irrelevant —
+// a miner on a distant terrain construct is powered the moment it is wired to a pole or
+// generator on any other construct.
 // PowerSystem processes each network independently on every tick.
-//
-// Network graph edges are formed automatically by Power Pole blocks:
-// two poles within PoleParams.WireRangeUnits of each other become connected.
-// Consumers and producers (Nodes) connect directly to the nearest pole in range.
 
 using System.Collections.Generic;
 

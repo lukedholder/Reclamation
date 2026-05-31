@@ -51,7 +51,8 @@ public class BlockPlacer : MonoBehaviour
         else
         {
             blockRot = 0;   // terrain: block has no rotation within its construct
-            PlaceOnTerrain(def, hit, out block, out constructView, out localPos);
+            Vector3 center = SnapTerrainCenter(def, hit.point);
+            PlaceOnTerrain(def, hit, center, out block, out constructView, out localPos);
         }
 
         bool swap = (blockRot & 1) == 1;
@@ -65,11 +66,42 @@ public class BlockPlacer : MonoBehaviour
         go.transform.localPosition = localPos;
         go.transform.localScale    = new Vector3(sx * CellSize, sy * CellSize, sz * CellSize);
         go.AddComponent<BlockView>().Init(block);
+
+        // If this is a miner placed on terrain, auto-configure it from any ore node below.
+        if (blockView == null && def.FunctionalType == FunctionalType.Miner)
+            TryBindMinerToNode(block, def, go.transform.position);
+    }
+
+    private void TryBindMinerToNode(Block block, BlockDefinition def, Vector3 worldCenter)
+    {
+        var node = OreNode.FindUnder(worldCenter, def.SizeX, def.SizeZ);
+        if (node == null) return;
+
+        var miner = Sim.Machines.Get<MinerMachine>(block.Id);
+        if (miner == null) return;
+
+        var mp = def.Params as MinerParams;
+        float rate = mp != null ? mp.ExtractRatePerSecond : node.ExtractRate;
+        miner.SetResourceNode(node.ResourceId, 1f / rate, 1);
     }
 
     // ── Placement modes ───────────────────────────────────────────────────────
 
-    private void PlaceOnTerrain(BlockDefinition def, RaycastHit hit,
+    // Returns the XZ snapped world center for terrain placement.
+    // Miners jump to the nearest ore node if one is within the block's footprint radius.
+    private static Vector3 SnapTerrainCenter(BlockDefinition def, Vector3 hitPoint)
+    {
+        if (def.FunctionalType == FunctionalType.Miner)
+        {
+            float snapR = Mathf.Max(def.SizeX, def.SizeZ) * CellSize;
+            var   node  = OreNode.FindNearest(hitPoint, snapR);
+            if (node != null)
+                return new Vector3(node.transform.position.x, hitPoint.y, node.transform.position.z);
+        }
+        return hitPoint;
+    }
+
+    private void PlaceOnTerrain(BlockDefinition def, RaycastHit hit, Vector3 snapCenter,
                                 out Block block, out ConstructView constructView, out Vector3 localPos)
     {
         // Terrain blocks always use rot=0 within their construct.
@@ -77,11 +109,11 @@ public class BlockPlacer : MonoBehaviour
         var simConstruct = Sim.CreateConstruct();
         block = Sim.PlaceBlock(def, simConstruct.Id, GridPos.Zero, 0);
 
-        // Block centre in world space: ray hit point on XZ, half-height up.
+        // Block centre in world space: snapped XZ (ore node or raw hit), half-height up.
         Vector3 blockWorldCenter = new Vector3(
-            hit.point.x,
+            snapCenter.x,
             hit.point.y + def.SizeY * 0.5f * CellSize,
-            hit.point.z);
+            snapCenter.z);
 
         // The block's centre in construct-local space (rot=0, so no swap).
         localPos = new Vector3(

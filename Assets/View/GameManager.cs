@@ -15,10 +15,7 @@ public class GameManager : MonoBehaviour
         Simulation = new Simulation();
     }
 
-    private void Start()
-    {
-        RunDebugScenario();
-    }
+    private void Start() { }
 
     // Replaces the running simulation with a fresh instance.
     // Called by SaveLoadManager on load so the view can rebuild from file.
@@ -36,52 +33,6 @@ public class GameManager : MonoBehaviour
             Simulation.Update();
             _accumulator -= TickRate;
         }
-    }
-
-    // ── Debug scenario ────────────────────────────────────────────────────────
-    // Power setup: 3× SteamGenerator (360 kW) + 1× SmallBattery (500 kJ, 100 kW discharge)
-    // Consumer demand (Operating): Miner (30) + Furnace (60) + Assembler (75) = 165 kW
-    // Consumer demand (Waiting):   same machines at 25% = 7.5 + 15 + 18.75 = 41.25 kW
-    //
-    // Balance at full production: 360 kW supply − 165 kW demand = +195 kW surplus → Nominal
-    //   Surplus charges battery at 50 kW (MaxChargeRateKW); machines run at 100%.
-    //   To exercise BatteryAssist/Deficit: swap to 1× SteamGenerator (120 kW supply,
-    //   45 kW deficit covered by battery → BatteryAssist, depletes in ~222 s at 20 Hz,
-    //   then Deficit at OperatingRate ≈ 72.7%).
-
-    private void RunDebugScenario()
-    {
-        var construct = Simulation.CreateConstruct();
-
-        // ── Power infrastructure ──────────────────────────────────────────────
-        Simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(0,  0, -4));
-        Simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(2,  0, -4));
-        Simulation.PlaceBlock(BlockCatalogue.SteamGenerator, construct.Id, new GridPos(4,  0, -4));
-        Simulation.PlaceBlock(BlockCatalogue.SmallBattery,   construct.Id, new GridPos(6,  0, -4));
-
-        // ── Production chain ──────────────────────────────────────────────────
-        var miner = Simulation.PlaceBlock(BlockCatalogue.BasicMiner, construct.Id, new GridPos(0, 0, 0));
-        Simulation.Machines.Get<MinerMachine>(miner.Id)
-            ?.SetResourceNode("iron_ore", cycleTime: 2f, amountPerCycle: 1);
-
-        var furnace = Simulation.PlaceBlock(BlockCatalogue.ElectricFurnace, construct.Id, new GridPos(6, 0, 0));
-        Simulation.Machines.Get<BaseMachine>(furnace.Id)
-            ?.SetRecipe(RecipeCatalogue.SmeltIron);
-
-        var assembler = Simulation.PlaceBlock(BlockCatalogue.AssemblerMk1, construct.Id, new GridPos(14, 0, 0));
-        Simulation.Machines.Get<BaseMachine>(assembler.Id)
-            ?.SetRecipe(RecipeCatalogue.IronGearWheel);
-
-        // ── Logistics ─────────────────────────────────────────────────────────
-        Simulation.Logistics.Connect(
-            sourceBlockId: miner.Id,    sourcePort: 0,
-            destBlockId:   furnace.Id,  destPort:   0,
-            lengthInCells: 6);
-
-        Simulation.Logistics.Connect(
-            sourceBlockId: furnace.Id,   sourcePort: 0,
-            destBlockId:   assembler.Id, destPort:   0,
-            lengthInCells: 4);
     }
 
     // ── Debug GUI ─────────────────────────────────────────────────────────────

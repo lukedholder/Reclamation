@@ -65,6 +65,14 @@ public class BlockDefinition
     // None = invisible to the power system.
     public PowerInterface PowerInterface;
 
+    // Maximum number of wires that can be attached to this block.
+    // 0 = not wireable (wire tool cannot target this block).
+    public int MaxWireConnections;
+
+    // Maximum wire length from this block in grid cells.
+    // 0 for non-wireable blocks.  Applied as the shorter of the two endpoints.
+    public float WireRangeUnits;
+
 
     // --- Construction Cost ---
 

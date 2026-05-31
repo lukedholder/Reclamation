@@ -1,6 +1,13 @@
 // Manages all power networks in the simulation.
-// Each construct starts with one default network. Multiple independent networks per construct
-// are possible once pole wiring is implemented — disconnected pole islands produce separate graphs.
+// Networks are defined purely by wire connections — two blocks joined by a wire
+// belong to the same network.  Construct membership does NOT automatically merge power;
+// wiring is always required to distribute power across constructs.
+//
+// Network topology is rebuilt lazily (once per tick if the graph has changed) using a
+// flood-fill over the explicit wire connection set.  Each connected component of power
+// blocks becomes one PowerNetwork.  Isolated blocks get their own Dead network.
+// The network's ID equals the minimum block ID in the component, so IDs are stable
+// across reconnects as long as the lowest-ID block in each component isn't removed.
 //
 // TICK LOGIC (per network):
 //   1. Sum generator supply (GeneratorState.IsRunning && CurrentOutputKW).
@@ -27,72 +34,54 @@ public class PowerSystem
 {
     private readonly PowerNetworkTable      _table       = new PowerNetworkTable();
     private readonly HashSet<(int, int)>    _connections = new HashSet<(int, int)>();
-    private int _nextNetworkId = 1;
+    private bool _dirty = false;
 
     // Expose networks for debug/view
     public IReadOnlyDictionary<int, PowerNetwork>   Networks        => _table.ById;
-    // Explicit user-placed wire connections between pole IDs (order-normalised: lower ID first).
+    // Explicit user-placed wire connections between block IDs (order-normalised: lower ID first).
     public IReadOnlyCollection<(int, int)>          WireConnections => _connections;
 
     // ── Wire connections ──────────────────────────────────────────────────────
 
-    // Adds an explicit wire between two poles.  Returns false if already connected.
-    public bool ConnectPoles(int poleA, int poleB)
-        => _connections.Add(MakeKey(poleA, poleB));
+    // Adds an explicit wire between two power blocks.  Returns false if already connected.
+    public bool ConnectBlocks(int blockA, int blockB)
+    {
+        bool added = _connections.Add(MakeKey(blockA, blockB));
+        if (added) _dirty = true;
+        return added;
+    }
 
     // Removes an explicit wire.  Returns false if no connection existed.
-    public bool DisconnectPoles(int poleA, int poleB)
-        => _connections.Remove(MakeKey(poleA, poleB));
+    public bool DisconnectBlocks(int blockA, int blockB)
+    {
+        bool removed = _connections.Remove(MakeKey(blockA, blockB));
+        if (removed) _dirty = true;
+        return removed;
+    }
 
-    public bool HasConnection(int poleA, int poleB)
-        => _connections.Contains(MakeKey(poleA, poleB));
+    public bool HasConnection(int blockA, int blockB)
+        => _connections.Contains(MakeKey(blockA, blockB));
 
-    // Number of wires currently attached to a given pole.
-    public int ConnectionCount(int poleId)
+    // Number of wires currently attached to a given block.
+    public int ConnectionCount(int blockId)
     {
         int n = 0;
         foreach (var (a, b) in _connections)
-            if (a == poleId || b == poleId) n++;
+            if (a == blockId || b == blockId) n++;
         return n;
     }
 
     // Normalises so the lower ID is always first, making the pair order-independent.
     private static (int, int) MakeKey(int a, int b) => a < b ? (a, b) : (b, a);
 
-    // ── Network management ────────────────────────────────────────────────────
-
-    // Create a new empty network belonging to a construct.
-    public PowerNetwork CreateNetwork(int constructId)
-    {
-        var network = new PowerNetwork { Id = _nextNetworkId++ };
-        _table.ById[network.Id] = network;
-
-        if (!_table.ByConstruct.ContainsKey(constructId))
-            _table.ByConstruct[constructId] = new List<int>();
-        _table.ByConstruct[constructId].Add(network.Id);
-
-        return network;
-    }
-
-    // Return the first (default) network ID for a construct, creating one if none exists.
-    public int GetOrCreateNetworkId(int constructId)
-    {
-        if (_table.ByConstruct.TryGetValue(constructId, out var ids) && ids.Count > 0)
-            return ids[0];
-        return CreateNetwork(constructId).Id;
-    }
-
     // ── Block registration ────────────────────────────────────────────────────
 
     // Called by Simulation.PlaceBlock() for every placed block.
+    // Initialises per-block power state; network assignment happens lazily in Tick().
     // Blocks with PowerInterface.None are silently ignored.
     public void Register(Block block)
     {
         if (block.Definition.PowerInterface == PowerInterface.None) return;
-
-        int networkId = GetOrCreateNetworkId(block.ConstructId);
-        block.PowerNetworkId = networkId;
-        var network = _table.ById[networkId];
 
         // Battery
         if (block.Definition.FunctionalType == FunctionalType.Battery)
@@ -105,7 +94,6 @@ public class PowerSystem
                 MaxDischargeRateKW = p.MaxDischargeRateKW,
                 StoredKJ           = p.CapacityKJ,   // start fully charged
             };
-            network.BatteryIds.Add(block.Id);
         }
 
         // Generator (V1: always running, no fuel)
@@ -113,36 +101,22 @@ public class PowerSystem
         {
             block.GeneratorState = new GeneratorState
             {
-                IsRunning      = true,
+                IsRunning       = true,
                 CurrentOutputKW = block.Definition.PowerOutputKW,
-                FuelRemaining  = float.MaxValue,   // V1 placeholder — infinite fuel
+                FuelRemaining   = float.MaxValue,   // V1 placeholder — infinite fuel
             };
-            network.GeneratorIds.Add(block.Id);
         }
 
-        // Consumer (machines, turrets, lights — anything with a power draw)
-        if (block.Definition.PowerDrawKW > 0f)
-            network.ConsumerIds.Add(block.Id);
-
-        // Pole
-        if (block.Definition.PowerInterface == PowerInterface.WireEndpoint)
-            network.PoleIds.Add(block.Id);
+        _dirty = true;
     }
 
     // Called by Simulation.RemoveBlock() before the block is deleted.
     public void Unregister(Block block)
     {
-        if (block.PowerNetworkId < 0) return;
-        if (!_table.ById.TryGetValue(block.PowerNetworkId, out var network)) return;
+        if (block.Definition.PowerInterface == PowerInterface.None) return;
 
-        network.GeneratorIds.Remove(block.Id);
-        network.BatteryIds.Remove(block.Id);
-        network.ConsumerIds.Remove(block.Id);
-        network.PoleIds.Remove(block.Id);
-        block.PowerNetworkId = -1;
-
-        // Drop every wire that was attached to this pole.
-        if (block.Definition.PowerInterface == PowerInterface.WireEndpoint)
+        // Drop every wire attached to this block.
+        if (block.Definition.MaxWireConnections > 0)
         {
             var toRemove = new List<(int, int)>();
             foreach (var (a, b) in _connections)
@@ -151,15 +125,90 @@ public class PowerSystem
             foreach (var key in toRemove)
                 _connections.Remove(key);
         }
+
+        _dirty = true;
     }
 
     // ── Tick ─────────────────────────────────────────────────────────────────
 
     public void Tick(float tickDelta, BlockTable blocks)
     {
+        if (_dirty) RebuildNetworks(blocks);
+
         foreach (var network in _table.ById.Values)
             TickNetwork(network, tickDelta, blocks);
     }
+
+    // ── Network rebuild ───────────────────────────────────────────────────────
+
+    // Flood-fills _connections to group all power blocks into connected components.
+    // Each component becomes a PowerNetwork; isolated blocks each get their own Dead network.
+    private void RebuildNetworks(BlockTable blocks)
+    {
+        _dirty = false;
+        _table.ById.Clear();
+
+        // Reset all network assignments.
+        foreach (var b in blocks.ById.Values)
+            b.PowerNetworkId = -1;
+
+        // Collect all power-participating blocks.
+        var wireable = new HashSet<int>();
+        foreach (var b in blocks.ById.Values)
+            if (b.Definition.PowerInterface != PowerInterface.None)
+                wireable.Add(b.Id);
+
+        // Flood-fill connected components via explicit wire connections.
+        var visited = new HashSet<int>();
+        foreach (int startId in wireable)
+        {
+            if (visited.Contains(startId)) continue;
+
+            var component = new List<int>();
+            var queue     = new Queue<int>();
+            queue.Enqueue(startId);
+            visited.Add(startId);
+
+            while (queue.Count > 0)
+            {
+                int id = queue.Dequeue();
+                component.Add(id);
+
+                foreach (var (a, b) in _connections)
+                {
+                    int neighbor = (a == id) ? b : (b == id) ? a : -1;
+                    if (neighbor < 0 || visited.Contains(neighbor) || !wireable.Contains(neighbor))
+                        continue;
+                    visited.Add(neighbor);
+                    queue.Enqueue(neighbor);
+                }
+            }
+
+            // Canonical network ID = minimum block ID in the component (stable for reconnects).
+            int netId = int.MaxValue;
+            foreach (int id in component) if (id < netId) netId = id;
+
+            var network = new PowerNetwork { Id = netId };
+            _table.ById[netId] = network;
+
+            foreach (int id in component)
+            {
+                if (!blocks.ById.TryGetValue(id, out var b)) continue;
+                b.PowerNetworkId = netId;
+
+                if (b.Definition.FunctionalType == FunctionalType.Battery)
+                    network.BatteryIds.Add(id);
+                if (b.Definition.PowerOutputKW > 0f)
+                    network.GeneratorIds.Add(id);
+                if (b.Definition.PowerDrawKW > 0f)
+                    network.ConsumerIds.Add(id);
+                if (b.Definition.PowerInterface == PowerInterface.WireEndpoint)
+                    network.PoleIds.Add(id);
+            }
+        }
+    }
+
+    // ── Per-network tick ──────────────────────────────────────────────────────
 
     private void TickNetwork(PowerNetwork network, float tickDelta, BlockTable blocks)
     {
@@ -206,9 +255,9 @@ public class PowerSystem
         }
 
         // Deficit — try to cover with batteries
-        float deficit      = -balance;
-        float batteryKW    = DischargeBatteries(network, deficit, tickDelta, blocks);
-        float effectiveKW  = supply + batteryKW;
+        float deficit     = -balance;
+        float batteryKW   = DischargeBatteries(network, deficit, tickDelta, blocks);
+        float effectiveKW = supply + batteryKW;
 
         if (effectiveKW >= demand)
         {
@@ -243,7 +292,7 @@ public class PowerSystem
         }
     }
 
-    // Draw up to deficitKW from batteries. Returns actual kW supplied.
+    // Draw up to deficitKW from batteries.  Returns actual kW supplied.
     private float DischargeBatteries(PowerNetwork network, float deficitKW, float tickDelta, BlockTable blocks)
     {
         float supplied = 0f;
@@ -253,10 +302,10 @@ public class PowerSystem
             if (!blocks.ById.TryGetValue(id, out var b)) continue;
             var bat = b.BatteryState;
 
-            float need       = deficitKW - supplied;
-            float maxDrawKW  = System.Math.Min(need, bat.MaxDischargeRateKW);
-            float maxKWFromKJ = bat.StoredKJ / tickDelta;           // kJ ÷ s = kW
-            float drawKW     = System.Math.Min(maxDrawKW, maxKWFromKJ);
+            float need        = deficitKW - supplied;
+            float maxDrawKW   = System.Math.Min(need, bat.MaxDischargeRateKW);
+            float maxKWFromKJ = bat.StoredKJ / tickDelta;   // kJ ÷ s = kW
+            float drawKW      = System.Math.Min(maxDrawKW, maxKWFromKJ);
 
             bat.StoredKJ = System.Math.Max(0f, bat.StoredKJ - drawKW * tickDelta);
             supplied    += drawKW;

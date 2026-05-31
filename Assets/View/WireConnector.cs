@@ -1,12 +1,16 @@
-// Wire-tool hotbar slot — click a power pole to start a connection, click a
-// second pole to complete it.  Click the same pole or right-click to cancel.
-// Clicking two already-connected poles disconnects them.
+// Wire-tool hotbar slot — click a power block to start a connection, click a
+// second power block to complete it.  Click the same block or right-click to cancel.
+// Clicking two already-connected blocks disconnects them.
+//
+// Any block with BlockDefinition.MaxWireConnections > 0 can be wired.
+// Wire range is read from BlockDefinition.WireRangeUnits; the shorter of the two
+// endpoints wins.  Connection limits also come from BlockDefinition.MaxWireConnections.
 //
 // Behaviour mirrors Satisfactory's power-line placement:
-//   • Hovered pole  — coloured box (green = connectable, red = out of range / full)
-//   • Pending pole  — yellow box, grey preview wire follows the cursor
-//   • Left-click    — pick first pole → then pick second pole to connect/disconnect
-//   • Right-click   — cancel pending connection
+//   • Hovered block  — coloured box (green = connectable, red = out of range / full)
+//   • Pending block  — yellow box, grey preview wire follows the cursor
+//   • Left-click     — pick first block → then pick second block to connect/disconnect
+//   • Right-click    — cancel pending connection
 //
 // Setup: attach to the Player GameObject alongside Hotbar, Raycaster,
 //        BlockPlacer, BlockDismantler, and BlockHighlight.
@@ -47,8 +51,8 @@ public class WireConnector : MonoBehaviour
     private Material     _matPending;
 
     // Connection state
-    private int       _pendingPoleId   = -1;
-    private BlockView _pendingPoleView;
+    private int       _pendingId   = -1;
+    private BlockView _pendingView;
 
     private Simulation Sim => GameManager.Instance.Simulation;
 
@@ -69,7 +73,7 @@ public class WireConnector : MonoBehaviour
     {
         if (!_hotbar.IsWireMode) { ClearAll(); return; }
 
-        BlockView hovered = HoveredPole();
+        BlockView hovered = HoveredPowerBlock();
         UpdateHoverBox(hovered);
         UpdatePendingBox();
         UpdatePreview(hovered);
@@ -80,8 +84,8 @@ public class WireConnector : MonoBehaviour
 
     private void UpdateHoverBox(BlockView hovered)
     {
-        // Don't double-draw on the pending pole — the pending box covers it.
-        if (hovered == null || (_pendingPoleId >= 0 && hovered.Block.Id == _pendingPoleId))
+        // Don't double-draw on the pending block — the pending box covers it.
+        if (hovered == null || (_pendingId >= 0 && hovered.Block.Id == _pendingId))
         {
             _hoverBox.SetActive(false);
             return;
@@ -89,35 +93,37 @@ public class WireConnector : MonoBehaviour
 
         _hoverBox.SetActive(true);
         _hoverBox.transform.position   = hovered.transform.position;
+        _hoverBox.transform.rotation   = hovered.transform.rotation;
         _hoverBox.transform.localScale = hovered.transform.localScale + Vector3.one * HighlightBias;
 
-        bool valid = _pendingPoleId < 0 || CanConnect(_pendingPoleView, hovered);
+        bool valid = _pendingId < 0 || CanConnect(_pendingView, hovered);
         _hoverRend.sharedMaterial = valid ? _matValid : _matInvalid;
     }
 
     private void UpdatePendingBox()
     {
-        if (_pendingPoleId < 0) { _pendingBox.SetActive(false); return; }
+        if (_pendingId < 0) { _pendingBox.SetActive(false); return; }
 
-        // The pending pole may have been dismantled.
-        if (_pendingPoleView == null) { _pendingPoleId = -1; _pendingBox.SetActive(false); return; }
+        // The pending block may have been dismantled.
+        if (_pendingView == null) { _pendingId = -1; _pendingBox.SetActive(false); return; }
 
         _pendingBox.SetActive(true);
-        _pendingBox.transform.position   = _pendingPoleView.transform.position;
-        _pendingBox.transform.localScale = _pendingPoleView.transform.localScale + Vector3.one * HighlightBias;
+        _pendingBox.transform.position   = _pendingView.transform.position;
+        _pendingBox.transform.rotation   = _pendingView.transform.rotation;
+        _pendingBox.transform.localScale = _pendingView.transform.localScale + Vector3.one * HighlightBias;
         _pendingRend.sharedMaterial      = _matPending;
     }
 
     private void UpdatePreview(BlockView hovered)
     {
-        if (_pendingPoleId < 0 || _pendingPoleView == null)
+        if (_pendingId < 0 || _pendingView == null)
         {
             _preview.gameObject.SetActive(false);
             return;
         }
 
         _preview.gameObject.SetActive(true);
-        Vector3 from = _pendingPoleView.transform.position;
+        Vector3 from = _pendingView.transform.position;
         Vector3 to   = hovered         != null ? hovered.transform.position
                      : _raycaster.HasHit       ? _raycaster.Hit.point
                      :                           from;
@@ -134,45 +140,40 @@ public class WireConnector : MonoBehaviour
 
         if (!Input.GetMouseButtonDown(0) || hovered == null) return;
 
-        if (_pendingPoleId < 0)
+        if (_pendingId < 0)
         {
-            // Start a new connection at this pole.
-            _pendingPoleId   = hovered.Block.Id;
-            _pendingPoleView = hovered;
+            // Start a new connection at this block.
+            _pendingId   = hovered.Block.Id;
+            _pendingView = hovered;
             return;
         }
 
-        // Clicked the pending pole again — cancel.
-        if (hovered.Block.Id == _pendingPoleId) { ClearSelection(); return; }
+        // Clicked the pending block again — cancel.
+        if (hovered.Block.Id == _pendingId) { ClearSelection(); return; }
 
         // Out of range or connection limit reached — red highlight is the feedback.
-        if (!CanConnect(_pendingPoleView, hovered)) return;
+        if (!CanConnect(_pendingView, hovered)) return;
 
         // Toggle: connect if disconnected, disconnect if already connected.
-        if (Sim.Power.HasConnection(_pendingPoleId, hovered.Block.Id))
-            Sim.Power.DisconnectPoles(_pendingPoleId, hovered.Block.Id);
+        if (Sim.Power.HasConnection(_pendingId, hovered.Block.Id))
+            Sim.Power.DisconnectBlocks(_pendingId, hovered.Block.Id);
         else
-            Sim.Power.ConnectPoles(_pendingPoleId, hovered.Block.Id);
+            Sim.Power.ConnectBlocks(_pendingId, hovered.Block.Id);
 
         ClearSelection();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    // Returns the hovered BlockView only when it is a power pole.
-    private BlockView HoveredPole()
+    // Returns the hovered BlockView only when it can accept wire connections.
+    private BlockView HoveredPowerBlock()
     {
         if (!_raycaster.HasHit) return null;
         var bv = _raycaster.Hit.collider.GetComponent<BlockView>();
-        return bv != null && bv.Block.Definition.PowerInterface == PowerInterface.WireEndpoint
-            ? bv : null;
+        return bv != null && bv.Block.Definition.MaxWireConnections > 0 ? bv : null;
     }
 
-    private float PoleRange(Block b)
-    {
-        var p = b.Definition.Params as PoleParams;
-        return (p?.WireRangeUnits ?? 8f) * CellSize;
-    }
+    private float WireRange(Block b) => b.Definition.WireRangeUnits * CellSize;
 
     // True if placing a wire from a to b is legal.
     // Always returns true for an existing connection so it can be toggled off.
@@ -180,23 +181,21 @@ public class WireConnector : MonoBehaviour
     {
         if (a == null || b == null) return false;
 
-        float maxRange = Mathf.Min(PoleRange(a.Block), PoleRange(b.Block));
+        float maxRange = Mathf.Min(WireRange(a.Block), WireRange(b.Block));
         if (Vector3.Distance(a.transform.position, b.transform.position) > maxRange) return false;
 
         // Disconnection is always allowed regardless of limits.
         if (Sim.Power.HasConnection(a.Block.Id, b.Block.Id)) return true;
 
-        // New connection: respect each pole's MaxConnections.
-        int maxA = (a.Block.Definition.Params as PoleParams)?.MaxConnections ?? 4;
-        int maxB = (b.Block.Definition.Params as PoleParams)?.MaxConnections ?? 4;
-        return Sim.Power.ConnectionCount(a.Block.Id) < maxA &&
-               Sim.Power.ConnectionCount(b.Block.Id) < maxB;
+        // New connection: respect each block's MaxWireConnections.
+        return Sim.Power.ConnectionCount(a.Block.Id) < a.Block.Definition.MaxWireConnections &&
+               Sim.Power.ConnectionCount(b.Block.Id) < b.Block.Definition.MaxWireConnections;
     }
 
     private void ClearSelection()
     {
-        _pendingPoleId   = -1;
-        _pendingPoleView = null;
+        _pendingId   = -1;
+        _pendingView = null;
     }
 
     private void ClearAll()

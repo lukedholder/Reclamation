@@ -89,18 +89,17 @@ public class BeltSegment
     }
 
     // Try to push the exit-slot item into the destination machine's input buffer.
+    // Routes by item type rather than port index: ItemBuffer.Add() finds the correct
+    // slot for the incoming item regardless of which physical port was connected.
+    // This decouples the port-face choice (which face you clicked) from the buffer
+    // slot layout (which is driven by recipe ingredient order, not port numbering).
     private bool TryDeliver(BlockTable blocks, string itemId)
     {
         if (!blocks.ById.TryGetValue(DestBlockId, out var dest)) return false;
         var buf = dest.MachineState?.InputBuffer;
-        if (buf == null || DestPortIndex >= buf.Slots.Count) return false;
-
-        var slot = buf.Slots[DestPortIndex];
-        if (slot.ItemId != itemId)                              return false; // wrong item type
-        if (buf.CountOf(itemId) >= buf.CapacityPerSlot)         return false; // dest full
-
-        buf.Add(itemId, 1);
-        return true;
+        if (buf == null) return false;
+        if (buf.CountOf(itemId) >= buf.CapacityPerSlot) return false; // slot full
+        return buf.Add(itemId, 1) > 0;  // returns 0 if no slot is configured for this item
     }
 
     // Try to pull one item from the source machine's output buffer into the entry slot.

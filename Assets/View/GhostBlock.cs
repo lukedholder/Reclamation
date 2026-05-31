@@ -83,7 +83,19 @@ public class GhostBlock : MonoBehaviour
 
         // ── Terrain hit ───────────────────────────────────────────────────────
         if (blockView == null)
-            return new Vector3(hit.point.x, hit.point.y + sy * 0.5f * CellSize, hit.point.z);
+        {
+            float x = hit.point.x, z = hit.point.z;
+
+            // Miners snap to the nearest ore node within the block's own footprint radius.
+            if (def.FunctionalType == FunctionalType.Miner)
+            {
+                float snapR = Mathf.Max(def.SizeX, def.SizeZ) * CellSize;
+                var node    = OreNode.FindNearest(hit.point, snapR);
+                if (node != null) { x = node.transform.position.x; z = node.transform.position.z; }
+            }
+
+            return new Vector3(x, hit.point.y + sy * 0.5f * CellSize, z);
+        }
 
         // ── Block face hit — all maths in construct-local space ───────────────
         // Using InverseTransformPoint/Direction means this works for rotated constructs

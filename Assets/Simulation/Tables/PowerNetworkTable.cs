@@ -1,16 +1,13 @@
 // Central data store for all active PowerNetwork instances in the simulation.
-// A single construct may own multiple independent power networks — they are all stored here,
-// each with a unique network ID (a separate ID sequence from construct IDs).
-// PowerSystem iterates ById to process every network each tick.
+// Networks are wire-topology-based: each connected component of power blocks is
+// one network.  Isolated power blocks each form their own Dead network.
+// PowerSystem rebuilds this table lazily whenever wires or blocks change.
 
 using System.Collections.Generic;
 
 public class PowerNetworkTable
 {
-    // All active power networks, keyed by network ID.
+    // All active power networks, keyed by canonical network ID (= minimum block ID
+    // in the component).  PowerSystem iterates ById to process every network each tick.
     public Dictionary<int, PowerNetwork> ById = new Dictionary<int, PowerNetwork>();
-
-    // Secondary index: construct ID → list of network IDs owned by that construct.
-    // A construct may have several disconnected networks; they are listed together here.
-    public Dictionary<int, List<int>> ByConstruct = new Dictionary<int, List<int>>();
 }

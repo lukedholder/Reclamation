@@ -87,9 +87,11 @@ public static class BlockCatalogue
         SizeZ            = 2,
         MaxDurability    = 300,
         Mass             = 80f,
-        PowerDrawKW      = 0f,
-        PowerOutputKW    = 120f,
-        PowerInterface   = PowerInterface.Node,
+        PowerDrawKW         = 0f,
+        PowerOutputKW       = 120f,
+        PowerInterface      = PowerInterface.Node,
+        MaxWireConnections  = 1,
+        WireRangeUnits      = 6f,
         ConstructionCost = new[] { new ItemStack("iron_plate", 8), new ItemStack("copper_plate", 4) },
         Params           = new GeneratorParams
         {
@@ -111,9 +113,11 @@ public static class BlockCatalogue
         SizeZ            = 1,
         MaxDurability    = 150,
         Mass             = 30f,
-        PowerDrawKW      = 0f,
-        PowerOutputKW    = 0f,
-        PowerInterface   = PowerInterface.Node,
+        PowerDrawKW         = 0f,
+        PowerOutputKW       = 0f,
+        PowerInterface      = PowerInterface.Node,
+        MaxWireConnections  = 1,
+        WireRangeUnits      = 6f,
         ConstructionCost = new[] { new ItemStack("copper_plate", 4), new ItemStack("circuit_board", 2) },
         Params           = new BatteryParams
         {
@@ -135,9 +139,11 @@ public static class BlockCatalogue
         SizeZ            = 1,
         MaxDurability    = 100,
         Mass             = 5f,
-        PowerDrawKW      = 0f,
-        PowerOutputKW    = 0f,
-        PowerInterface   = PowerInterface.WireEndpoint,
+        PowerDrawKW         = 0f,
+        PowerOutputKW       = 0f,
+        PowerInterface      = PowerInterface.WireEndpoint,
+        MaxWireConnections  = 4,
+        WireRangeUnits      = 8f,
         ConstructionCost = new[] { new ItemStack("copper_wire", 2), new ItemStack("iron_plate", 1) },
         Params           = new PoleParams
         {
@@ -158,9 +164,11 @@ public static class BlockCatalogue
         SizeX            = 2, SizeY = 2, SizeZ = 2,
         MaxDurability    = 250,
         Mass             = 60f,
-        PowerDrawKW      = 30f,
-        PowerOutputKW    = 0f,
-        PowerInterface   = PowerInterface.Node,
+        PowerDrawKW         = 30f,
+        PowerOutputKW       = 0f,
+        PowerInterface      = PowerInterface.Node,
+        MaxWireConnections  = 1,
+        WireRangeUnits      = 6f,
         ConstructionCost = new[] { new ItemStack("iron_plate", 6), new ItemStack("iron_gear", 4) },
         Params           = new MinerParams
         {
@@ -184,9 +192,11 @@ public static class BlockCatalogue
         SizeX            = 2, SizeY = 2, SizeZ = 2,
         MaxDurability    = 300,
         Mass             = 80f,
-        PowerDrawKW      = 60f,
-        PowerOutputKW    = 0f,
-        PowerInterface   = PowerInterface.Node,
+        PowerDrawKW         = 60f,
+        PowerOutputKW       = 0f,
+        PowerInterface      = PowerInterface.Node,
+        MaxWireConnections  = 1,
+        WireRangeUnits      = 6f,
         ConstructionCost = new[] { new ItemStack("iron_plate", 8), new ItemStack("circuit_board", 2) },
         Params           = null, // no special params — recipe drives behaviour
         Ports = new[]
@@ -206,9 +216,11 @@ public static class BlockCatalogue
         SizeX            = 3, SizeY = 2, SizeZ = 3,
         MaxDurability    = 300,
         Mass             = 100f,
-        PowerDrawKW      = 75f,
-        PowerOutputKW    = 0f,
-        PowerInterface   = PowerInterface.Node,
+        PowerDrawKW         = 75f,
+        PowerOutputKW       = 0f,
+        PowerInterface      = PowerInterface.Node,
+        MaxWireConnections  = 1,
+        WireRangeUnits      = 6f,
         ConstructionCost = new[] { new ItemStack("iron_plate", 9), new ItemStack("iron_gear", 5), new ItemStack("circuit_board", 3) },
         Params           = new AssemblerParams
         {
