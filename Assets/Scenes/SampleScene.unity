@@ -856,6 +856,7 @@ GameObject:
   - component: {fileID: 1963636165}
   - component: {fileID: 1963636166}
   - component: {fileID: 1963636167}
+  - component: {fileID: 1963636168}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -943,6 +944,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _portMaterial: {fileID: 2100000, guid: 0d086f98bd4c5d04e9e0f258dc05a3c6, type: 2}
   _beltMaterial: {fileID: 2100000, guid: ce598ccb288e35744b743d974f12ef1d, type: 2}
+--- !u!114 &1963636168
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1963636161}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53795f6e97229b74c8d4d20a24b6edbc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1989232365
 GameObject:
   m_ObjectHideFlags: 0

@@ -85,6 +85,7 @@ public class BeltConnector : MonoBehaviour
 
     private void Update()
     {
+        if (MenuManager.IsOpen)  { ClearAll(); return; }
         if (!_hotbar.IsBeltMode) { ClearAll(); return; }
 
         // Right-click cancels pending.

@@ -71,6 +71,7 @@ public class WireConnector : MonoBehaviour
 
     private void Update()
     {
+        if (MenuManager.IsOpen)  { ClearAll(); return; }
         if (!_hotbar.IsWireMode) { ClearAll(); return; }
 
         BlockView hovered = HoveredPowerBlock();

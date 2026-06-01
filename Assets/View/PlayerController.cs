@@ -7,7 +7,7 @@
 //   WASD       — move
 //   Mouse      — look (cursor locked on start)
 //   Space      — jump
-//   Escape     — unlock / re-lock cursor
+//   Escape     — handled by MenuManager (opens pause menu)
 
 using UnityEngine;
 
@@ -16,6 +16,13 @@ public class PlayerController : MonoBehaviour
 {
     [SerializeField] private float _moveSpeed       = 8f;
     [SerializeField] private float _lookSensitivity = 2f;
+
+    // Exposed so SettingsPanel can update it at runtime.
+    public float LookSensitivity
+    {
+        get => _lookSensitivity;
+        set => _lookSensitivity = value;
+    }
     [SerializeField] private float _gravity         = -20f;
     [SerializeField] private float _jumpSpeed       = 7f;
 
@@ -36,7 +43,6 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        HandleCursorToggle();
         HandleLook();
         HandleMove();
     }
@@ -80,12 +86,6 @@ public class PlayerController : MonoBehaviour
     }
 
     // ── Cursor ────────────────────────────────────────────────────────────────
-
-    private void HandleCursorToggle()
-    {
-        if (Input.GetKeyDown(KeyCode.Escape))
-            LockCursor(Cursor.lockState != CursorLockMode.Locked);
-    }
 
     private static void LockCursor(bool locked)
     {

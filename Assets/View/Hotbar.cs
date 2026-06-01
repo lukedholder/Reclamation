@@ -70,9 +70,13 @@ public class Hotbar : MonoBehaviour
 
     private void Update()
     {
-        HandleScrollInput();
-        HandleNumberInput();
-        HandleDeselect();
+        // Suppress gameplay input while any menu is open; still refresh the HUD visuals.
+        if (!MenuManager.IsOpen)
+        {
+            HandleScrollInput();
+            HandleNumberInput();
+            HandleDeselect();
+        }
         RefreshHUD();
     }
 

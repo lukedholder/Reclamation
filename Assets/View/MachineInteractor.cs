@@ -57,6 +57,10 @@ public class MachineInteractor : MonoBehaviour
     private Block       _targetBlock;
     private BaseMachine _targetMachine;
 
+    // Exposed so MenuManager can close the panel via ESC routing.
+    public bool IsOpen => _open;
+    public void Close() => ClosePanel();
+
     // ── Unity ─────────────────────────────────────────────────────────────────
 
     private void Awake()
@@ -72,6 +76,13 @@ public class MachineInteractor : MonoBehaviour
 
     private void Update()
     {
+        // Pause/settings menu takes priority — close machine panel if it sneaks in.
+        if (MenuManager.IsOpen)
+        {
+            if (_open) ClosePanel();
+            return;
+        }
+
         // Auto-close if the machine was dismantled while the panel was open.
         if (_open && (_targetBlock == null || !Sim.Blocks.ById.ContainsKey(_targetBlock.Id)))
         {
@@ -79,16 +90,16 @@ public class MachineInteractor : MonoBehaviour
             return;
         }
 
-        bool eKey  = Input.GetKeyDown(KeyCode.E);
-        bool esc   = Input.GetKeyDown(KeyCode.Escape);
+        // ESC is handled by MenuManager; only E closes the panel here.
+        bool eKey = Input.GetKeyDown(KeyCode.E);
 
         if (_open)
         {
-            if (eKey || esc) ClosePanel();
+            if (eKey) ClosePanel();
         }
         else
         {
-            // Only open when cursor is locked (FPS mode) and wire tool is not active.
+            // Only open when cursor is locked (FPS mode) and tool mode is not active.
             if (eKey && !_hotbar.IsToolMode) TryOpen();
         }
     }

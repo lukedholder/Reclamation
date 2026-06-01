@@ -49,8 +49,9 @@ public class SaveLoadManager : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F5)) Save();
-        if (Input.GetKeyDown(KeyCode.F9)) Load();
+        if (MenuManager.IsOpen) return;
+        if (Input.GetKeyDown(KeyCode.F5)) SaveGame();
+        if (Input.GetKeyDown(KeyCode.F9)) LoadGame();
     }
 
     // ── Serialisable data types ───────────────────────────────────────────────
@@ -102,7 +103,7 @@ public class SaveLoadManager : MonoBehaviour
 
     // ── Save ──────────────────────────────────────────────────────────────────
 
-    private void Save()
+    public void SaveGame()
     {
         var sim  = GameManager.Instance.Simulation;
         var file = new SaveFile();
@@ -180,7 +181,7 @@ public class SaveLoadManager : MonoBehaviour
 
     // ── Load ──────────────────────────────────────────────────────────────────
 
-    private void Load()
+    public void LoadGame()
     {
         if (!File.Exists(SavePath))
         {
