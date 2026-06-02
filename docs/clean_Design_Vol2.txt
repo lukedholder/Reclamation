@@ -1,0 +1,664 @@
+SPACE CRUSADE
+Game Design Document
+Volume II — Logistics Network &amp; Production Chain
+v0.1 — April 2026
+This document covers the Logistics Network and the first complete production chain. It assumes the Building System and Power Network from Volume I are implemented and working. Read alongside the Requirements Document.
+1. Document Overview
+Volume II covers the two systems that transform a powered building site into a working factory: the Logistics Network, which moves items between machines, and the Production Chain, which defines what those machines make. Together these systems complete the core automation loop. Once Volume II is implemented the player can mine ore, smelt it into plates, assemble plates into components, and have every step happen automatically without manual intervention.
+Field
+Value
+Status
+Draft — not yet implemented
+Depends on
+Volume I (Building System, Power Network)
+Systems covered
+Logistics Network, Machine Operation, Recipe System, Item Data, Progression Tier 1
+Systems deferred
+Vehicles, Combat, Advanced logistics (drones, pipes for fluids), Tiers 2+
+Target build
+V1 first playable — automated production loop
+2. Resolved Design Decisions
+The following questions were open in the requirements document or arose naturally from Volume I design. They are answered here before the detailed sections begin.
+✅  Decision — Item transport model:  Discrete tick-based conveyor belts for all solid items in V1. Each belt segment is one grid cell wide and moves items at a defined rate. Fluid pipes are deferred — oil and similar resources will be introduced in a later volume when the pipe system is designed. This keeps V1 logistics simple and focused on the solid-item production chain.
+✅  Decision — Routing behaviour at splits:  Round-robin distribution. When a conveyor feeds into a splitter with multiple outputs, items alternate between available outputs evenly. If one output is backed up, items continue down the other outputs rather than blocking the belt. This is predictable, easy to reason about, and avoids the complexity of demand-aware routing in V1.
+✅  Decision — Machine idle behaviour:  Machines stall in place when blocked. If a machine&apos;s output is full and cannot push items forward, the machine stops its production cycle and waits. It does not discard items or continue producing. Power continues to be drawn at idle rate (25% of operating draw) while stalled. This creates meaningful backpressure that teaches the player to balance throughput.
+✅  Decision — Progression model for V1:  Production milestones. Tier 2 unlocks automatically when the player has cumulatively produced defined quantities of Tier 1 items. No separate research infrastructure is required. The UI shows a progress bar toward the next tier so the player always knows how close they are. This is the simplest model that still creates a sense of industrial growth.
+✅  Decision — Manual crafting interface:  The player can open a crafting panel from their inventory screen at any time. Manual crafting uses items from the personal inventory and produces directly into it. It is available throughout the game but capped at one item per craft action — no bulk manual crafting. This ensures manual crafting remains useful for one-off needs without replacing automation.
+3. Logistics Network
+3.1 Overview
+The Logistics Network is the system of conveyors, inserters, and splitters that moves items between machines and storage within a construct. It is the circulatory system of the factory. Without it, machines produce in isolation and the player must manually carry every item.
+The logistics network is entirely passive from the power network&apos;s perspective. Conveyor belts and inserters do not consume power in V1. This is a deliberate simplification — it removes one balancing concern from early factory design and lets the player focus on item flow layout rather than power budgeting for infrastructure.
+📝  Design Note:  This can be revisited post-V1. Adding power costs to conveyors and inserters would create a meaningful trade-off between logistics density and power capacity, which becomes interesting at larger factory scales.
+3.2 Conveyor Belts
+Conveyor belts are the primary item transport component. A belt occupies one grid cell and has a defined facing direction. Items placed on the belt travel in the facing direction at a fixed rate. Belts connect end-to-end when placed in a continuous line. A belt that faces into the side of another belt merges its items onto that belt.
+✅  Decision — Belt simulation model:  Slot-based. Each belt cell has two item slots (left lane and right lane). Each tick, items in each slot attempt to advance one position forward. If the next slot is occupied, the item waits. This model is simple, deterministic, and visually clear — the player can always see exactly where items are and why they are not moving.
+Belt throughput is expressed as items per second per lane. The V1 belt tier moves 1 item per second per lane, giving a maximum of 2 items per second per belt segment. A faster belt tier is available at Tier 2 and doubles throughput.
+Belt Tier
+Speed
+Throughput (per lane)
+Unlock
+Basic Belt
+1 cell/s
+1 item/s
+Tier 1 (default)
+Fast Belt
+2 cells/s
+2 items/s
+Tier 2
+📝  Design Note:  Do not add more belt tiers in V1. Two is enough to make Tier 2 feel meaningfully faster without adding complexity to logistics planning.
+3.3 Inserters
+Inserters are single-cell components that pick items from one location and place them in another. They bridge the gap between belt lanes and machine input/output slots. Without inserters, belts and machines cannot exchange items — an inserter is always required to load a machine from a belt or unload a machine onto a belt.
+✅  Decision — Inserter operation model:  Arm-swing with configurable item filter. An inserter has a source cell and a target cell (the two cells it faces across). Each inserter cycle it picks one item from the source, holds it briefly, then deposits it in the target. Cycle time is fixed per inserter tier. The player can optionally set an item filter on the inserter so it only picks items of a specific type, ignoring others. No filter means the inserter takes whatever is available.
+Inserter Tier
+Cycle Time
+Items/min
+Filter Support
+Unlock
+Basic Inserter
+1.2s
+50
+Yes
+Tier 1
+Fast Inserter
+0.4s
+150
+Yes
+Tier 2
+Stack Inserter
+0.4s
+450 (3 items/swing)
+Yes
+Tier 2
+📝  Design Note:  The Stack Inserter is included at Tier 2 to give a compelling logistics upgrade alongside the Fast Belt. Moving 3 items per swing dramatically reduces inserter count needed for high-throughput machines.
+3.4 Splitters
+Splitters are 1×2-cell components that accept items from one belt input and distribute them across two belt outputs. They are the primary tool for dividing item streams to feed multiple machines from a single source belt.
+✅  Decision — Splitter distribution:  Round-robin per lane. Each output belt receives items alternately. A splitter can optionally be configured with a priority output — items go to the priority side first and only overflow to the secondary side. Priority mode is useful for keeping a critical machine fed before routing surplus elsewhere. This is a single toggle, not a full routing rule system.
+Splitters can also merge two input belts into one output, functioning as a merger when items enter from both sides. The merge uses the same round-robin logic — one item from each input alternates onto the output.
+3.5 Storage Chests
+Storage chests are passive containers that hold items and make them available to adjacent inserters. They do not pull or push items themselves — they only accept or provide items when an inserter acts on them. Chests are the primary buffer point in a production chain.
+Chest Type
+Capacity (slots)
+Stack Size
+Notes
+Unlock
+Wooden Chest
+16 slots
+100 items
+Early-game buffer.
+Tier 1
+Iron Chest
+32 slots
+100 items
+Standard storage.
+Tier 1
+Steel Chest
+48 slots
+100 items
+High-capacity buffer.
+Tier 2
+❓  Open — Logistics chest types:  Should V1 include passive (dumb) chests only, or also active provider/requester chests similar to Factorio&apos;s logistic system? Active chests would require a logistics bot network to function and are out of scope for V1. Recommendation: passive chests only for now, active logistics as a post-V1 system.
+3.6 Item Flow Rules
+The following rules govern how items move through the logistics network and interact with machines. These rules must be implemented consistently to prevent edge cases that break production chains.
+Backpressure
+If a machine&apos;s output slot is full and the inserter or belt taking from it is also full, the machine stalls. It does not discard outputs. The stall propagates backward through the belt until it reaches a machine or storage that can absorb the excess. This is intentional and teaches the player to balance production rates and throughput.
+Insertion Priority
+When a machine has multiple input types and multiple inserters feeding it, there is no coordination between inserters — each inserter acts independently. If both inputs are available, both inserters fire on their own cycle. The machine begins its production cycle only when all required inputs are present in its internal buffer, regardless of which inserter delivered them first.
+Belt Compression
+A belt is considered &quot;compressed&quot; when every slot is occupied. A compressed belt at the input side of a machine is the most efficient delivery state. Gaps in a belt reduce effective throughput. Players should be able to observe belt compression visually — a compressed belt looks visually full, a sparse belt has visible gaps between items.
+Inter-Construct Logistics
+Logistics networks do not automatically span separate constructs. Items cannot travel from one construct to another via a belt unless the two constructs are physically connected and share the same construct membership. A gap of one cell between two belt lines breaks the connection. This forces the player to either connect constructs or use vehicles for inter-base item transfer in V1.
+4. Machine Operation
+4.1 Operation Model
+All production machines share a common operation model. Understanding this model is the foundation for implementing all machine types consistently.
+A machine has four internal states:
+State
+Condition
+Power Draw
+Producing
+Idle
+No recipe set, or waiting for player to configure.
+0 kW
+No
+Waiting
+Recipe set, but one or more inputs are missing or output is full.
+25% of operating draw
+No
+Operating
+All inputs present, output has space, power connected.
+100% draw
+Yes
+No Power
+Not connected to a network, or network has zero supply.
+0 kW
+No
+Each production cycle the machine consumes the exact recipe input quantities from its internal buffer, runs for the recipe&apos;s cycle_time duration, then deposits the recipe outputs into its output buffer. The next cycle begins immediately if inputs are available. If not, the machine transitions to Waiting.
+📝  Design Note:  The 25% idle power draw while Waiting is intentional. A factory with stalled machines still shows meaningful power consumption, giving the player a signal that throughput is sub-optimal without making stalls completely free. This also makes power budgeting slightly more forgiving than 0% idle draw would be.
+4.2 Miner
+The miner is a specialised machine that extracts raw resources from resource nodes. It has no recipe input — it produces continuously as long as it is powered and the resource node beneath it has remaining yield.
+Placement rule: a miner must be placed so that its extraction footprint covers at least one resource node cell. Miners placed away from a node are invalid and cannot be confirmed.
+Field
+Value
+Extraction rate
+Defined per miner tier. Basic Miner: 1 ore/s at full power.
+Output
+One item type matching the resource node type beneath it.
+Output face
+Configurable at placement (any face). Default: front face.
+Stall condition
+Output buffer full and no inserter/belt clearing it.
+Node depletion
+Open question — see below.
+❓  Open — Resource node depletion:  Are resource nodes finite or infinite in V1? Finite nodes create pressure to expand to new deposits, which supports the exploration loop. Infinite nodes are simpler and let the player focus on factory design without logistical anxiety. Recommendation: infinite in V1 to reduce expansion pressure while the core loop is being validated. Make nodes finite in a later version.
+4.3 Electric Furnace
+The electric furnace smelts raw ores into plates. It is the first processing machine in every production chain and acts as the gateway from raw resources to usable materials.
+The furnace has one input slot (ore), one output slot (plates), and draws power while operating. It executes smelting recipes automatically — there is no manual recipe selection required. The furnace detects the ore type in its input slot and applies the matching smelt recipe.
+📝  Design Note:  Auto-detecting the recipe based on input type is a deliberate simplification for furnaces. It avoids the player needing to configure each furnace individually. Assemblers, by contrast, require explicit recipe selection because they can execute many different recipes.
+Field
+Value
+Input
+1 ore item per smelt cycle.
+Output
+1 plate item per smelt cycle.
+Cycle time
+3.2 seconds per plate at full power.
+Power draw
+60 kW operating, 15 kW waiting.
+Throughput
+~18.75 plates/minute per furnace.
+4.4 Assembler Mk1
+The assembler is the core manufacturing machine. Unlike the furnace, the assembler requires the player to explicitly select a recipe. It can execute any recipe in the &quot;basic&quot; recipe category. It has multiple input slots and one output slot.
+The player selects a recipe by opening the assembler&apos;s interface panel and choosing from the list of available recipes. Once a recipe is set, the assembler will only consume and produce items matching that recipe. Changing the recipe clears the machine&apos;s internal item buffers — any items already inside are ejected onto adjacent belts or lost if no belt is present.
+❓  Open — Recipe change item fate:  Should items in a machine&apos;s buffer be ejected onto an adjacent belt when the recipe is changed, or should they be returned to the player&apos;s inventory, or simply lost? Ejecting to a belt is most forgiving but requires the belt to have space. Recommendation: attempt to eject to any connected output belt; if no belt has space, return to player inventory; if inventory is also full, the recipe change is blocked until space is made.
+Field
+Value
+Input slots
+3 (one per ingredient in the active recipe, up to 3 ingredients).
+Output slots
+1.
+Speed multiplier
+1.0× at Tier 1. Tier 2 assembler is 1.5×.
+Power draw
+75 kW operating, 18.75 kW waiting.
+Recipe categories
+basic (components, blocks, ammunition, intermediate goods).
+5. Recipe System
+5.1 Recipe Schema
+A recipe is a data record that defines one production transformation. Recipes are not code — they are data loaded at startup. Adding a new recipe requires only a new data entry, not a code change.
+Field
+Type
+Description
+id
+string
+Unique identifier, e.g. &quot;smelt_iron_ore&quot;. Used in save files.
+display_name
+string
+Player-facing name shown in machine UI.
+category
+enum
+smelting | basic | intermediate | advanced
+machine_types
+string[]
+Block IDs of machines that can execute this recipe.
+inputs
+ItemStack[]
+List of {item_id, quantity} consumed per cycle.
+outputs
+ItemStack[]
+List of {item_id, quantity} produced per cycle.
+cycle_time
+float
+Seconds per production cycle at 1.0× speed multiplier.
+tier_required
+int
+Minimum progression tier for this recipe to appear in machine UIs.
+5.2 V1 Recipe Table
+The following recipes form the complete V1 production chain from raw ore to Tier 1 components. These are starting values — cycle times and quantities should be tuned during playtesting to achieve the desired factory scale.
+Smelting Recipes (Electric Furnace)
+Recipe
+Input
+Output
+Cycle Time
+Notes
+Smelt Iron
+1 Iron Ore
+1 Iron Plate
+3.2s
+Foundation of all chains.
+Smelt Copper
+1 Copper Ore
+1 Copper Plate
+3.2s
+Required for electronics.
+Smelt Steel
+5 Iron Plates
+1 Steel Plate
+16s
+Tier 1. Unlocks Armor Panel, Laser Turret.
+Basic Assembly Recipes (Assembler Mk1)
+Recipe
+Inputs
+Output
+Cycle Time
+Notes
+Iron Gear
+2 Iron Plates
+1 Gear
+0.5s
+Used in nearly every machine.
+Copper Wire
+1 Copper Plate
+2 Copper Wire
+0.5s
+Used in electronics.
+Circuit Board
+1 Iron Plate + 3 Copper Wire
+1 Circuit Board
+0.5s
+Key Tier 1 component.
+Conveyor Belt
+1 Iron Plate + 1 Gear
+2 Conveyor Belt
+0.5s
+Self-bootstrapping.
+Inserter
+1 Iron Plate + 1 Gear + 1 Circuit Board
+1 Inserter
+0.5s
+Core logistics component.
+Power Pole
+1 Iron Plate + 2 Copper Wire
+2 Power Pole
+0.5s
+Bootstrapped early with manual craft.
+Storage Chest (Iron)
+8 Iron Plates
+1 Iron Chest
+0.5s
+Standard buffer.
+Basic Miner
+4 Iron Plates + 2 Gears
+1 Basic Miner
+1.0s
+Produces more miners.
+Electric Furnace
+8 Iron Plates + 4 Copper Plates
+1 Electric Furnace
+2.0s
+Scale smelting.
+Assembler Mk1
+8 Iron Plates + 4 Gears + 2 Circuit Boards
+1 Assembler Mk1
+2.0s
+Scale assembly.
+Firearm Mag
+4 Iron Plates
+1 Firearm Mag
+1.0s
+Ammo for Gun Turret.
+Gun Turret
+4 Iron Plates + 2 Gears + 1 Firearm Mag
+1 Gun Turret
+2.0s
+Defense. Tier 1.
+Steam Generator
+8 Iron Plates + 4 Copper Plates
+1 Steam Generator
+2.0s
+Scale power.
+📝  Design Note:  The Conveyor Belt recipe outputs 2 belts per craft. This is a common pattern in factory games because belt quantities needed are very high — producing 2 per cycle halves the number of assemblers needed to keep a factory stocked with belts. Apply the same pattern to other high-volume items as balancing requires.
+5.3 Production Chain Diagram
+The V1 chain from raw ore to finished products follows this dependency tree. Read top-to-bottom — each row depends on the row above it.
+Stage
+Input
+Process
+Output
+Used In
+1
+Iron Ore
+Electric Furnace
+Iron Plate
+Everything.
+1
+Copper Ore
+Electric Furnace
+Copper Plate
+Wire, electronics.
+2
+Iron Plate ×2
+Assembler
+Gear
+Machines, inserters.
+2
+Copper Plate
+Assembler
+Copper Wire ×2
+Circuit Board, poles.
+3
+Iron Plate + Wire ×3
+Assembler
+Circuit Board
+Inserter, assembler.
+3
+Iron Plate ×5
+Furnace
+Steel Plate
+Armor, Tier 2 blocks.
+4
+Iron Plate + Gear + Board
+Assembler
+Inserter
+Logistics.
+4
+Iron Plate + Gear
+Assembler
+Conveyor Belt ×2
+Logistics.
+4
+Iron Plate + Wire ×2
+Assembler
+Power Pole ×2
+Power network.
+4
+Iron Plate ×4
+Assembler
+Firearm Mag
+Gun Turret ammo.
+5
+Iron + Gear + Mag
+Assembler
+Gun Turret
+Defense.
+📝  Design Note:  This chain deliberately converges on Circuit Boards as the bottleneck component. Boards require copper wire which requires copper plates, creating a secondary smelting line. The player must build and balance two ore lines (iron and copper) to produce advanced components — this is the first real factory design challenge.
+6. Item Data
+6.1 Item Schema
+Items are data records. The schema is minimal by design — item behaviour is determined by how they are used in recipes and machines, not by properties on the item itself.
+Field
+Type
+Description
+id
+string
+Unique identifier, e.g. &quot;iron_ore&quot;. Used in recipes, inventories, save files.
+display_name
+string
+Player-facing name.
+category
+enum
+raw | processed | component | block | ammo | fuel
+stack_size
+int
+Maximum number of this item that fits in one inventory slot.
+icon
+string
+Asset reference for the item icon in the UI.
+tier_required
+int
+Minimum progression tier for this item to appear in crafting UIs. 0 = always visible.
+6.2 V1 Item Table
+All items required for the V1 production chain. Items are listed in chain order — raw resources first, manufactured outputs last.
+Item
+ID
+Category
+Stack Size
+Notes
+Iron Ore
+iron_ore
+raw
+50
+Mined from iron nodes.
+Copper Ore
+copper_ore
+raw
+50
+Mined from copper nodes.
+Coal
+coal
+fuel
+50
+Fuel for Steam Generator. Also minable.
+Iron Plate
+iron_plate
+processed
+100
+Smelted from Iron Ore.
+Copper Plate
+copper_plate
+processed
+100
+Smelted from Copper Ore.
+Steel Plate
+steel_plate
+processed
+100
+Smelted from 5× Iron Plate.
+Gear
+gear
+component
+100
+Assembled from 2× Iron Plate.
+Copper Wire
+copper_wire
+component
+200
+Assembled from 1× Copper Plate (yields 2).
+Circuit Board
+circuit_board
+component
+200
+Assembled from Iron Plate + 3× Wire.
+Firearm Mag
+firearm_mag
+ammo
+200
+Ammo for Gun Turret. 4× Iron Plate.
+Conveyor Belt
+conveyor_belt
+block
+100
+Logistics. Self-producible.
+Inserter
+inserter
+block
+50
+Logistics. Requires Circuit Board.
+Power Pole
+power_pole
+block
+50
+Power network extender.
+Iron Chest
+chest_iron
+block
+50
+Standard storage buffer.
+Basic Miner
+miner_basic
+block
+10
+Self-producible once chain is running.
+Electric Furnace
+furnace_electric
+block
+10
+Core smelting machine.
+Assembler Mk1
+assembler_mk1
+block
+10
+Core assembly machine.
+Gun Turret
+turret_gun
+block
+10
+Defense. Requires ammo supply.
+Steam Generator
+generator_steam
+block
+10
+Power generation. Requires coal.
+📝  Design Note:  Stack sizes reflect item volume and value. Raw ores and plates stack to 50 or 100 because they are moved in bulk. Components and blocks stack smaller because they are expensive to make and rarely need to be bulk-transported. Ammo stacks high (200) because turrets consume it continuously and logistics must keep up with sustained fire.
+7. Progression — Tier 1 Design
+7.1 Tier Structure Overview
+V1 uses a two-tier progression system. Tier 1 is the starting state — no unlock required. Tier 2 is unlocked by reaching a production milestone. The milestone represents the player having built a functioning automated factory, not just having gathered resources manually.
+Tier
+Name
+Unlock Condition
+What It Unlocks
+0 / 1
+Bootstrap
+Starting state
+Manual crafting, Foundation, Wall, Basic Miner, Furnace, Assembler Mk1, Conveyor, Inserter, Power Pole, Steam Generator, Iron Chest, Gun Turret
+2
+Industrial
+Produce 100× Circuit Boards (automated or manual)
+Fast Belt, Fast Inserter, Stack Inserter, Steel Chest, Steel Plate recipe, Large Power Pole, Armor Panel, Laser Turret, Assembler Mk2
+📝  Design Note:  Circuit Boards are chosen as the Tier 2 milestone because producing 100 requires a functioning copper line, an iron line, a wire step, and a board assembly step — all running together. Reaching this milestone organically means the player has built a real multi-stage factory. It cannot be gamed by manual crafting alone in any reasonable time.
+7.2 Tier 2 Block Additions
+The following blocks become available at Tier 2. They are listed here to complete the V1 block set started in Volume I.
+Block
+Category
+Size
+Power
+Cost
+Notes
+Assembler Mk2
+Production
+3×3×2
+150 kW
+8× Steel Plate + 4× Gear + 4× Circuit Board
+1.5× speed vs Mk1.
+Fast Belt
+Logistics
+1×1×1
+—
+1 Iron Plate + 1 Gear
+2× throughput.
+Fast Inserter
+Logistics
+1×1×1
+—
+1 Iron Plate + 1 Gear + 2 Circuit Board
+3× speed vs basic.
+Stack Inserter
+Logistics
+1×1×1
+—
+1 Iron Plate + 1 Gear + 4 Circuit Board
+Moves 3 items/swing.
+Steel Chest
+Storage
+1×2×1
+—
+8× Steel Plate
+48-slot storage.
+Large Power Pole
+Power
+1×2×1
+—
+4× Iron Plate + 4× Copper Wire
+16-unit range, 6 connections.
+Armor Panel
+Structural
+1×1×1
+—
+4× Iron + 2× Steel Plate
+400 durability wall block.
+Laser Turret
+Defense
+1×2×1
+40 kW
+4× Steel Plate + 2× Circuit Board
+No ammo. 24m range.
+7.3 Tier Progress UI
+The current tier progress must always be visible to the player without opening a menu. A compact progress indicator in the HUD shows the current milestone item, the current count, and the target count (e.g. &quot;Circuit Boards: 47 / 100&quot;). When the milestone is reached a prominent unlock notification appears and a brief visual flourish plays.
+The player should be able to open a full progression screen that shows all tiers, their unlock conditions, and what each tier adds. Locked tiers should show their content as a preview so the player always knows what they are working toward.
+8. Implementation Notes &amp; Build Order
+8.1 Build Order
+These steps continue from where Volume I left off (step 10: Blueprint save + place). Build in this order to maintain a playable state throughout.
+Step
+Task
+Dependency
+Done When...
+11
+Item data loading
+Vol I complete
+All V1 items load from data file. Can inspect item definitions.
+12
+Recipe data loading
+Item data
+All V1 recipes load. Machine can be assigned a recipe in UI.
+13
+Miner produces items
+Recipe data, Power
+Miner on node extracts ore into its output buffer at correct rate.
+14
+Inserter picks and places
+Item data
+Inserter moves one item from source cell to target cell per cycle.
+15
+Conveyor belt moves items
+Item data
+Item placed on belt travels to end. Slot-based movement works.
+16
+Furnace smelts
+Inserter, Belt, Power
+Iron ore in → iron plate out, via inserters and belts. Full mini-chain.
+17
+Assembler executes recipe
+Furnace, Inserter
+Recipe selected. Inputs consumed, output produced. Stall on full output.
+18
+Splitter distributes
+Belt
+Splitter alternates items between two output belts correctly.
+19
+Storage chest buffers
+Inserter
+Inserter fills chest. Second inserter extracts from chest. Capacity limits work.
+20
+Backpressure propagates
+All logistics
+Full output causes machine stall. Stall visible in machine UI.
+21
+Full chain: ore → component
+All above
+Iron ore auto-produces Circuit Boards end to end without player intervention.
+22
+Tier 2 milestone tracking
+Recipe system
+Circuit Board count tracked. UI shows progress. Tier 2 unlocks at 100.
+23
+Manual crafting panel
+Item + Recipe data
+Player opens inventory, crafts one item manually from personal stock.
+8.2 Key Technical Risks
+Belt item simulation at scale — slot-based belts are simple per-cell but can be expensive when thousands of cells are ticking every frame. Consider spatial partitioning to only tick belt segments that have items on them. Empty belt sections should not tick.
+Inserter reach across construct boundaries — an inserter placed at the edge of a construct must not be able to reach into a different construct&apos;s machine. Validate both source and target cells against the inserter&apos;s owning construct at the moment of placement.
+Recipe change clearing machine buffers — clearing internal buffers on recipe change is straightforward but must handle the case where the output belt is full and the machine can&apos;t eject. Define a clear fallback (block the change, or send to player inventory) early to avoid an unresolved state mid-game.
+Milestone tracking across sessions — the Circuit Board count must persist correctly in the save file even if the player has already consumed some boards in construction. The tracker counts cumulative production, not current inventory.
+8.3 Balancing Notes
+The following ratios are starting points derived from the recipe table. They should be used as a sanity check when the chain is first running, not as final targets.
+To produce...
+You need (approx)...
+Bottleneck
+1 Circuit Board / 0.5s
+1 Assembler (boards) + 1.5 Assemblers (wire) + 0.5 Furnaces (copper) + 0.5 Furnaces (iron)
+Wire assemblers.
+Full iron chain at 30 plates/min
+~2 Miners + 1.6 Furnaces
+Furnace throughput.
+Gun Turret ammo (sustained fire)
+~1 Assembler (mags) per 2 turrets
+Iron plate supply to ammo line.
+Steam Generator fuel
+~0.25 miners (coal) per generator
+Coal node yield.
+📝  Design Note:  These ratios are approximate and based on default tick rates. Real balance requires playtesting. The intent is that a typical Tier 1 base has 4–8 furnaces, 6–10 assemblers, and needs to manage roughly 3–4 separate item streams simultaneously before reaching the Tier 2 milestone. If it takes fewer than 30 minutes or more than 90 minutes of focused play, adjust cycle times.
+8.4 What&apos;s Not In This Document
+The following systems are required for a complete V1 but are deferred to later design volumes:
+Vehicles &amp; Mobility (Volume III)
+Combat &amp; Defense — enemy AI, turret targeting, damage resolution (Volume III)
+Fluid logistics — pipes, pumps, oil processing chain
+Tier 3+ progression and late-game production chains
+Save / Load implementation detail
+World generation and resource node placement rules
+Volume III will cover Vehicles and Combat, which together complete the defend-and-expand half of the core loop. Once Volume III is implemented, a minimal but complete V1 playable session should be achievable from start to Tier 2 milestone.

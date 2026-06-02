@@ -238,6 +238,33 @@ public static class BlockCatalogue
         },
     };
 
+    // --- V1 Storage Blocks ---
+
+    public static readonly BlockDefinition StorageChest = new BlockDefinition
+    {
+        Id               = "storage_chest",
+        DisplayName      = "Storage Chest",
+        Category         = BlockCategory.Storage,
+        FunctionalType   = FunctionalType.Storage,
+        TierRequired     = 0,
+        SizeX            = 1, SizeY = 1, SizeZ = 1,
+        MaxDurability    = 200,
+        Mass             = 15f,
+        PowerDrawKW      = 0f,        // passive — no power needed
+        PowerOutputKW    = 0f,
+        PowerInterface   = PowerInterface.None,
+        ConstructionCost = new[] { new ItemStack("iron_plate", 4) },
+        Params           = null,
+        // Input on back face (-Z), output on front face (+Z).
+        // Both port indices are 0: input belt connects to InputBuffer slot 0,
+        // output belt reads OutputBuffer slot 0.
+        Ports = new[]
+        {
+            new PortDefinition { Index = 0, Type = PortType.Input,  Face = FaceDir.NegZ },
+            new PortDefinition { Index = 0, Type = PortType.Output, Face = FaceDir.PosZ },
+        },
+    };
+
     // --- Catalogue enumeration (used by save / load) ---
 
     public static System.Collections.Generic.IReadOnlyList<BlockDefinition> All() => new[]
@@ -245,5 +272,6 @@ public static class BlockCatalogue
         SmallCube, LargeCube, Plank,
         SteamGenerator, SmallBattery, SmallPowerPole,
         BasicMiner, ElectricFurnace, AssemblerMk1,
+        StorageChest,
     };
 }

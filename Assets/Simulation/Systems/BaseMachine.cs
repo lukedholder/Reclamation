@@ -56,7 +56,9 @@ public abstract class BaseMachine
 
     // Called once per simulation tick by MachineSystem.
     // tickDelta = fixed simulation step in seconds (1 / 20 Hz = 0.05s).
-    public void Tick(float tickDelta)
+    // Virtual so that non-recipe machines (e.g. StorageChestMachine) can bypass
+    // the recipe-based production loop entirely.
+    public virtual void Tick(float tickDelta)
     {
         if (State.ActiveRecipe == null)    { State.Mode = OperationMode.Idle;    return; }
         if (State.OperatingRate <= 0f)     { State.Mode = OperationMode.NoPower; return; }

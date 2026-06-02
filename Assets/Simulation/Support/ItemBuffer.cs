@@ -4,6 +4,10 @@
 // Slots are configured by SetRecipe() — one slot per recipe input/output.
 // LogisticsSystem moves items between buffers and conveyor belts via inserters.
 // MachineSystem reads and writes quantities directly during production.
+//
+// AcceptsAny mode (used by StorageChestMachine):
+//   When AcceptsAny = true, Add() dynamically creates a new slot for any unknown
+//   item type as long as Slots.Count < MaxSlots.  All other operations are unchanged.
 
 using System.Collections.Generic;
 
@@ -14,6 +18,10 @@ public class ItemBuffer
 
     // How many of one item type a single slot can hold.
     public int CapacityPerSlot = 100;
+
+    // When true, Add() creates slots on demand for unknown item types (up to MaxSlots).
+    // Used by StorageChestMachine input staging.  False for all recipe-based machines.
+    public bool AcceptsAny = false;
 
     // Current contents. Each entry is one stack (item type + quantity).
     // Indexed by recipe input/output order. Configured by SetRecipe.
@@ -39,6 +47,8 @@ public class ItemBuffer
 
     // Add items to the first slot configured for this item type.
     // Returns the number actually added (capped by CapacityPerSlot).
+    // In AcceptsAny mode a new slot is created for unknown item types when
+    // Slots.Count < MaxSlots; otherwise returns 0 (all slots occupied by other types).
     public int Add(string itemId, int quantity)
     {
         for (int i = 0; i < Slots.Count; i++)
@@ -49,7 +59,23 @@ public class ItemBuffer
             if (added > 0) Slots[i] = new ItemStack(itemId, Slots[i].Quantity + added);
             return added;
         }
+
+        // AcceptsAny: dynamically create a slot for this unknown item type.
+        if (AcceptsAny && Slots.Count < MaxSlots)
+        {
+            int added = quantity < CapacityPerSlot ? quantity : CapacityPerSlot;
+            Slots.Add(new ItemStack(itemId, added));
+            return added;
+        }
+
         return 0; // no slot configured for this item
+    }
+
+    // True if any slot holds at least one item.
+    public bool HasItems()
+    {
+        foreach (var s in Slots) if (s.Quantity > 0) return true;
+        return false;
     }
 
     // Remove exactly `quantity` of `itemId`. Returns true if the removal succeeded.

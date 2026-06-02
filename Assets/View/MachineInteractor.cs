@@ -116,6 +116,12 @@ public class MachineInteractor : MonoBehaviour
         var machine = Sim.Machines.Get(bv.Block.Id);
         if (machine == null) return;    // structural / power block — not configurable
 
+        // Skip blocks with nothing to configure (no recipes and not a miner).
+        var ftype      = bv.Block.Definition.FunctionalType;
+        bool hasOptions = ftype == FunctionalType.Miner
+                       || RecipeCatalogue.ForMachineType(ftype).Length > 0;
+        if (!hasOptions) return;
+
         _targetBlock   = bv.Block;
         _targetMachine = machine;
 

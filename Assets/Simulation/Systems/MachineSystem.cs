@@ -32,6 +32,7 @@ public class MachineSystem
             FunctionalType.Miner     => new MinerMachine(block),
             FunctionalType.Assembler => new AssemblerMachine(block),
             FunctionalType.Furnace   => new FurnaceMachine(block),
+            FunctionalType.Storage   => new StorageChestMachine(block),
             _                        => null,
         };
 

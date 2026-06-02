@@ -1,0 +1,917 @@
+SPACE CRUSADE
+Game Requirements Document
+v4.0 — April 2026
+This document defines what Space Crusade must do and why. It is not a design document — it does not specify how systems are implemented. It is the contract between the vision and the codebase. All design decisions, answered questions, and resolved open issues from the design session are reflected here.
+1. Overview
+🌍  Premise:  You have been dispatched to a hostile alien planet with one directive: eradicate all native life. You arrive alone in a drop pod on the safest hemisphere of the planet. Your job is to build a factory, automate it, arm it, and use everything it produces to push the alien ecosystem back across the entire planet — until nothing remains alive but you and your machines.
+Space Crusade is a single-player, first/third-person, factory-builder and real-time strategy campaign game set on a procedurally generated alien planet. The player builds and automates industrial infrastructure, designs and commands a growing military force of droids and vehicles, and progressively reclaims planetary territory from an alien ecosystem that scales in size and aggression with distance from the starting zone. The campaign ends when the player constructs and activates a planetary reclamation megastructure at the enemy core.
+Target experience: 40–60 hours per campaign for an experienced player. Release model: Early Access — a complete, playable core loop is shipped first and expanded with the community.
+Field
+Value
+Genre
+Factory builder + RTS + shooter. Single-player campaign.
+Platform
+PC (Windows primary). Mac/Linux secondary. No console or mobile in scope.
+Engine
+Unity (primary target) or handmade C++/Vulkan (possible pivot). Architecture must support both.
+Development context
+Solo developer. Passion project. No fixed deadline.
+Release model
+Early Access. V1 = complete core loop playable start to Tier 2 milestone.
+Campaign length
+40–60 hours per run for an experienced player. Procedural generation enables replayability.
+Multiplayer
+Not in scope. Architecture must not actively prevent future addition.
+2. Game Fantasy and Design Pillars
+The player should feel one of three distinct things at any given moment. The game is designed so these states alternate naturally without the player needing to choose them.
+The Engineer
+Standing back, watching the factory run. Belts moving, machines humming, power balanced, production ticking upward. You designed this. The urge to make it run even better is the engine that keeps the player engaged for hours.
+The Builder
+Placing blocks, routing logistics, solving layout problems with creative constraint. Blueprinting a production cell, stamping it across a factory floor, watching something that didn&apos;t exist start producing. This is the tactile satisfaction that makes factory games addictive.
+The Commander
+Mounting a vehicle, leading a droid brigade into enemy territory, turrets firing, taking fire back. Your base is behind you — you built it, and now it is funding this offensive. The combat is dangerous enough that preparation matters. Your army is a physical expression of your factory&apos;s output.
+2.1 Design Pillars
+Pillar
+What It Means
+Reference
+Modular Engineering
+Players construct bases, vehicles, droids, and orbital platforms block-by-block on a shared system. Complexity emerges from simple components.
+Space Engineers
+Industrial Automation
+Players transition from manual gathering to fully automated production chains. The factory runs without the player once properly designed.
+Factorio / Satisfactory
+Military Supply Chain
+Everything used in combat is produced by the factory. Ammunition, droids, vehicles, repairs — nothing is found or given. The factory IS the military.
+Original
+Territorial Conquest
+The planet is the antagonist. Push enemies back zone by zone. Hold ground with infrastructure. The win condition is planetary reclamation.
+Helldivers 2
+Scale as Narrative
+The game communicates progression through physical scale. Tiny bugs become kaiju. A shack becomes a megafactory. A lone engineer becomes a planetary invasion force.
+Original
+3. Core Gameplay Loop
+The loop is simple to state and hard to master. Every phase feeds into the next. In the early game the player runs these phases sequentially. By the late game all phases run simultaneously.
+Grow Factory  →  Supply Front Lines  →  Push Enemies Back  →  Obtain New Resources  →  Unlock New Tech  →  Grow Factory
+Phase
+Player Activity
+What the Game Provides
+Loop Closes When
+Grow Factory
+Place blocks, route logistics, connect power, configure machines, design production cells.
+Ghost preview, placement validation, power HUD, belt visualisation, backpressure feedback.
+Factory produces target output at target rate without player intervention.
+Supply Front Lines
+Route ammunition, fuel, droid parts, and repair materials to active military units.
+Logistics network, vehicle convoys, droid logistics brigades, supply shortage alerts.
+Military units are stocked and operational. Supply chain is self-sustaining.
+Push Enemies Back
+Fight directly, command droid brigades, issue advance orders, call orbital support.
+Enemy aggression, territory feedback, droid status indicators, brigade command interface.
+Zone cleared. Territory converted from hostile to contested or safe.
+Obtain New Resources
+Scout new zone, establish outpost, build mining infrastructure, extend logistics back to main base.
+Resource deposit indicators, danger gradient, new ore types visible in deposits.
+New tier resource is flowing into the production chain.
+Unlock New Tech
+Milestone reached or artifact found. New recipes and blocks become available.
+Tier progress indicator, unlock notification, new items in build menu.
+Player has access to more capable production, defense, and military options.
+3.1 The Three Timescales
+The loop operates at three nested timescales simultaneously.
+Micro loop (seconds to minutes): Observe → Identify problem or opportunity → Act → See result → New state reveals next problem. Must never stall.
+Mid loop (15–45 minutes): One complete Build → Automate → Defend → Expand cycle. A satisfying session contains at least one full mid loop.
+Macro loop (hours to campaign end): Five-act campaign arc from landing to planetary reclamation. Every mid loop action advances the macro loop.
+4. World and Environment
+4.1 Planet Scale and Geography
+The game takes place on a single procedurally generated planet. The player lands on one hemisphere. The enemy core is on the opposite hemisphere. Distance from the landing zone equals danger. This axis is omnidirectional — the player can push in any direction and reaches the enemy core after approximately the same distance regardless of route.
+✅  World loading:  Chunked streaming. The planet is divided into streaming chunks that load and unload transparently as the player moves. There are no loading screens. Factory simulation continues in loaded chunks when the player is elsewhere. Enemy AI only runs in loaded chunks.
+✅  Generation model:  Fully procedural per run. Every campaign takes place on a unique planet. Overall structure is fixed (safe landing zone, difficulty gradient, enemy core at antipode) but terrain, resource deposits, nest positions, and biome layout are randomised.
+Hard constraints the generator must respect:
+▸   Tier 1 resources must be abundant within 20% of landing zone distance.
+▸   Each required resource type must appear at least once at its expected distance tier.
+▸   No required resource may be gated behind an area that requires it to access.
+▸   The path to the enemy core must always be traversable — no impassable terrain walls on all routes.
+▸   Enemy nest density must increase monotonically with distance. No safe pockets deep in hostile territory.
+4.2 Danger Zones
+Zone
+Distance from Landing
+Enemy Scale
+Resource Tier
+Player Experience
+Landing Zone
+0–15%
+&lt; 1ft insects. Minor nuisance.
+Tier 1: Iron, Copper, Coal
+Peaceful. Factory focus. Bugs occasionally chew wires.
+Frontier
+15–35%
+Dog to wolf sized. Pack hunters.
+Tier 1 high-yield + early Tier 2
+First real threat. Turrets essential. Outposts need walls.
+Contested
+35–55%
+Human to vehicle sized. Swarm raids.
+Tier 2: rare metals, compounds
+Requires military prep. Droid patrols needed.
+Deep Territory
+55–75%
+Vehicle to building sized. Megafauna.
+Tier 2 high-yield + early Tier 3
+Sustained campaigns. Brigade support essential.
+Heartland
+75–90%
+Building to skyscraper sized. Boss-class.
+Tier 3: exotic materials
+Full military mobilisation. Orbital support needed.
+The Core
+90–100%
+Kaiju. Ground not visible.
+Tier 4: unique endgame materials
+Final campaign. Everything built comes to bear here.
+4.3 Biomes
+The planet contains multiple biome regions, each with distinct terrain character, resource distribution, enemy variants, and environmental hazards. Biomes are placed procedurally but respect the distance/danger axis.
+Alien plains — open, buildable, mild hazards. Common in landing zone and frontier regions.
+Dense alien jungle — reduced visibility, terrain obstacles, aggressive creature density.
+Desert / dust wastes — dust storms reduce visibility and solar output. Unique mineral deposits.
+Volcanic region — geothermal energy sources. Extreme heat hazards. Exotic material deposits.
+Frozen region — ice reduces vehicle traction. Unique crystalline resources.
+Alien deep-core — the final biome. Dense biological mass. Kaiju terrain. Unique Tier 4 materials.
+4.4 Weather
+✅  Weather system:  Full weather simulation. Weather affects visibility, power generation, and vehicle movement.
+Weather State
+Power Effect
+Movement Effect
+Visibility Effect
+Clear
+Solar panels at maximum output.
+No modifier.
+Maximum range.
+Overcast
+Solar panels at reduced output (~50%).
+No modifier.
+Slightly reduced.
+Rain
+Solar panels offline. No wind effect.
+Mild traction reduction on slopes.
+Reduced. Turret accuracy affected.
+Storm
+Solar panels offline. Wind turbines at maximum output.
+Significant traction reduction.
+Severely reduced. Turret range cut.
+Fog
+No power effect.
+No modifier.
+Severely reduced. Scouting impaired.
+Dust storm (desert)
+Solar panels offline.
+Vehicle speed reduced.
+Near-zero. Radar/map only.
+Blizzard (frozen)
+Wind turbines bonus. Solar reduced.
+Heavy traction penalty. Vehicles slow.
+Severely reduced.
+Weather transitions gradually between states rather than changing instantly. Weather events vary in duration and may be localised to specific biome regions. The player can observe approaching weather on the map to plan accordingly.
+4.5 Resource Nodes
+Resource nodes are natural deposits of extractable materials distributed across the planet. They are the starting point of every production chain.
+▸   Resource nodes appear naturally in the environment and are visually distinct and identifiable.
+▸   Nodes are infinite in V1 — they do not deplete. Depletion may be added in a post-V1 update.
+▸   Nodes support both manual extraction and automated mining machines.
+▸   Resource rarity and type scale with distance from landing zone as defined by the danger zone model.
+▸   Nodes are discoverable through exploration and visible on the map once scouted.
+5. The Enemy
+The aliens are not an army — they are an ecosystem. They do not have commanders, strategy, or logistics. They have biology. They swarm, nest, grow, and respond to threats with instinct and numbers. What makes them dangerous is density, scale, and the fact that there are always more of them.
+5.1 Enemy Scale Progression
+Creature scale increases with distance from the landing zone. This is a biological reality of the planet: older territories contain older, larger organisms. The player encounters enemies at their smallest and most manageable first, learning the threat at minimal stakes before it escalates to existential scale.
+Zone
+Creature Scale
+Behaviour Pattern
+Primary Threat to Factory
+Landing Zone
+&lt; 1ft insect-class
+Wanders. Occasionally chews wire insulation or belt segments.
+Minor nuisance. Teaches the player that defense matters.
+Frontier
+Dog to wolf sized
+Pack hunters. Attack isolated machines and lone players.
+Can destroy undefended outpost components.
+Contested
+Human to car sized
+Coordinated swarm raids. Target power infrastructure preferentially.
+Can destroy generators and break logistics chains.
+Deep Territory
+Car to building sized
+Megafauna with area attacks. Stomp damage. Ranged biological projectiles.
+Single creature destroys multiple blocks. Concentrated fire required.
+Heartland
+Building to skyscraper
+Boss-class. Multiple attack phases. Destroy outposts in seconds.
+Existential threat to any unprepared installation.
+The Core
+Kaiju. Ground invisible
+Swarm so dense movement is impeded. Kaiju emerge from biological mass.
+The entire factory must supply this assault continuously.
+5.2 Threat Scaling
+Enemy aggression scales with the player&apos;s industrial footprint, not with elapsed time. A larger, louder factory attracts more attention. This is the core feedback mechanism that keeps military investment necessary throughout the entire campaign.
+Footprint Signal
+Measured By
+Effect on Enemy Response
+Active power generation
+Total kW output across all networks
+Higher output = larger and more frequent raid waves at frontier.
+Territory radius
+Distance of furthest active construct from landing zone
+Expanding into new zones triggers escalation events.
+Cumulative production
+Total items produced across all time
+Long-running factories attract coordinated multi-nest assaults.
+Active military size
+Total droid units and vehicles in service
+Large armies trigger proportional enemy swarm response.
+5.3 Enemy Requirements
+▸   Enemies must attack player infrastructure using the targeting priority: power generators first, production machines second, logistics third, structural blocks last.
+▸   Enemy scale must be immediately visually readable. A player must be able to estimate danger from creature silhouette alone.
+▸   Enemy nests must look biologically distinct from player infrastructure. The contrast between organic and industrial must be strong.
+▸   Cleared territory must look visually different from hostile territory. The map must change as the player wins.
+▸   Enemy attack waves must trigger a visible and audible alert. The player must always know when they are under attack.
+6. Construct Model
+All player-built entities are constructs composed of connected blocks. The construct model is the architectural foundation of every other system. Bases, vehicles, droids, and orbital platforms all use the same model.
+Construct Type
+Classification
+Grid Model
+Primary Role
+Base
+Terrain-anchored. Contains production, storage, or power.
+Fixed 3D grid. Foundations establish local grid origin.
+Industrial production, defense, logistics hub.
+Outpost
+Terrain-anchored. No significant production. Logistics/extraction focus.
+Fixed 3D grid. Same foundation system as bases.
+Forward resource extraction. Supply relay. Defensive position.
+Vehicle
+Not terrain-anchored. Contains control seat + propulsion + power.
+Freeform — not grid-snapped. Blocks placed at any angle.
+Combat, transport, exploration.
+Droid
+Not terrain-anchored. Player-designed blueprint. Contains locomotion + weapon/tool + power.
+Freeform — blueprint-based, same system as vehicles.
+Autonomous combat, logistics, construction assistance.
+Orbital Platform
+Not terrain-anchored. Constructed in space or launched from ground.
+Freeform — same system as vehicles.
+Fire support, reconnaissance, supply drops, Tier 3-4 manufacturing.
+🏗️  Architecture note:  Bases use a fixed grid; vehicles, droids, and orbital platforms use freeform placement. These are two different coordinate and physics models that must coexist. Docking between a freeform vehicle and a grid base requires explicit interface blocks on both constructs. This is the primary architectural seam in the construct system and must be prototyped early.
+6.1 Grid-Based Constructs (Bases and Outposts)
+▸   Construction occurs on a uniform 3D lattice. Cell size is 1m × 1m × 1m (logical unit).
+▸   Each foundation group establishes a local grid origin. Blocks snap to integer offsets from that origin.
+▸   Separate foundation groups define independent grids that cannot be merged.
+▸   Construct membership is defined by face-adjacent block connectivity. Membership recalculates on every block add or remove.
+▸   Removing a block that splits a construct must produce two independent constructs immediately.
+▸   Adding a block adjacent to two constructs must merge them immediately.
+6.2 Freeform Constructs (Vehicles, Droids, Orbital Platforms)
+▸   Freeform constructs are not bound to a grid. Blocks may be placed at any position and orientation.
+▸   A construct becomes a vehicle when it contains: control seat, at least one propulsion block, and a power source.
+▸   A construct becomes a droid when it is designed from a player-created blueprint and contains: locomotion block, power block, and at least one weapon or tool block.
+▸   Freeform constructs move as a unified rigid body. All blocks translate and rotate together.
+▸   Block-based durability applies to freeform constructs identically to grid constructs. There is no separate HP pool.
+▸   Orbital platforms may be constructed on the ground and launched, or constructed in orbit directly.
+6.3 Docking
+▸   Docking is initiated when a freeform construct&apos;s docking port block makes contact with a base&apos;s docking port block.
+▸   Docking requires explicit docking port blocks on both the vehicle and the base. Auto-docking on proximity is not supported.
+▸   When docked, the systems connected via docking ports (power, logistics, or both depending on port type) are linked.
+▸   Undocking cleanly separates all network connections and returns the vehicle to independent simulation.
+7. Building System
+The Building System is the primary interaction layer for all construction. It governs how the player places, orients, removes, and repairs blocks in both grid and freeform contexts.
+7.1 Build Modes
+Mode
+Enter
+Exit
+Available Actions
+Exploration
+Default state
+Press build key or open build menu
+Movement, machine interaction, vehicle entry, inventory, combat.
+Build
+Press build key
+Press build key, Escape, or right-click
+Ghost preview, block placement, rotation (90° increments for grid; freeform for vehicles), blueprint placement.
+Dismantle
+Hold dismantle key
+Release key
+Block removal. Returns materials. Warns on construct split or critical connection break.
+Repair
+Hold repair key
+Release key
+Restores block durability. Consumes materials from inventory or connected storage.
+✅  Structural integrity model:  Connectivity-only (Option A). Blocks are valid as long as connected to the construct via at least one adjacent face. No weight or stress simulation for V1. Floating cantilevered structures are permitted if connected.
+✅  Block rotation:  90° increments for grid-based constructs. Freeform for vehicles, droids, and orbital platforms.
+✅  Dismantle recovery:  100% material recovery for V1. Reduce if playtesting shows players never commit to layouts.
+7.2 Placement Validation
+Placement validation runs on every frame during ghost preview and again at confirmation. Checks run in order:
+▸   All required grid cells are unoccupied (grid constructs only).
+▸   Placement position is within a buildable area.
+▸   At least one face of the new block is adjacent to an existing block in the same construct, OR the block is a foundation on terrain (first foundation in a new group is exempt).
+▸   No block-specific placement constraints are violated (e.g. miner must be over resource node).
+If validation fails, the ghost stays in its invalid state and a one-line reason is shown in the HUD. Confirm is ignored while invalid. The player moves the cursor until the ghost shows valid.
+7.3 Blueprint System
+▸   A blueprint captures block types, positions relative to blueprint origin, and orientations. No runtime state.
+▸   Blueprint placement projects a ghost showing each block coloured: green (placeable, materials available), yellow (placeable, materials missing), red (terrain conflict or occupied).
+▸   Partial placement is supported. Missing-material blocks are skipped and remain as ghost markers.
+▸   Blueprints are saved persistently in the save file. Player can name, organise, and delete them.
+▸   Blueprint construction can be completed manually or later automated through construction droids or bots.
+▸   Blueprints are used for both base sections and droid designs. The same system serves both use cases.
+7.4 Building UI
+▸   Ghost block preview updates at 60fps with zero perceptible lag.
+▸   Invalid placement shows reason text (e.g. &quot;blocked&quot;, &quot;no connection&quot;, &quot;out of build area&quot;) readable in under one second.
+▸   Block selection supports category filtering and name search without leaving Build Mode.
+▸   Hotbar supports quick-slot assignment for frequently used blocks.
+▸   Power and logistics connection indicators are optionally visible in Build Mode to show how a ghost block would connect.
+8. Block System
+Blocks are the atomic unit of all constructs. Every block type is defined by a data record. Block behaviour is determined by its definition, not by code specific to that block type. Adding a new block type requires only a new data entry.
+8.1 Block Definition Schema
+Field
+Type
+Description
+id
+string
+Unique identifier. Used in save files, recipes, and blueprints.
+display_name
+string
+Player-facing name shown in UI.
+category
+enum
+structural | production | storage | power | logistics | defense | vehicle | orbital
+size
+int3
+Grid cells occupied as [x,y,z]. Applies to grid constructs. Freeform constructs use bounding volume.
+durability
+int
+Max hit points. Block is destroyed at 0.
+mass
+float
+Used for vehicle/droid/orbital physics. Ignored for anchored constructs.
+construction_cost
+ItemStack[]
+Materials required to place this block.
+power_draw
+float
+kW consumed per second while operating.
+power_output
+float
+kW produced per second.
+power_interface
+enum
+none | node | wire_endpoint
+logistics_inputs
+PortDef[]
+Input port definitions: {face, item_filter}.
+logistics_outputs
+PortDef[]
+Output port definitions: {face}.
+fluid_inputs
+FluidPortDef[]
+Fluid input port definitions: {face, fluid_type}.
+fluid_outputs
+FluidPortDef[]
+Fluid output port definitions: {face, fluid_type}.
+functional_type
+enum
+none | miner | assembler | storage | turret | generator | battery | seat | propulsion | pole | pump | pipe | docking_port | fabricator | launcher
+functional_params
+object
+Type-specific parameters defined per functional_type.
+placement_rules
+PlacementRule[]
+Additional constraints beyond standard adjacency.
+tier_required
+int
+Minimum progression tier. 0 = always available.
+8.2 Block Categories
+Category
+Description
+Examples
+structural
+Physical structure with no functional role. High durability.
+Foundation, Wall, Armor Panel, Frame
+production
+Transforms inputs into outputs. Requires power and logistics.
+Miner, Furnace, Assembler, Fabricator
+storage
+Holds items or fluids. Passive — requires inserters or pumps to fill/empty.
+Iron Chest, Steel Chest, Fluid Tank
+power
+Generates, stores, or distributes electrical energy.
+Steam Generator, Solar Panel, Battery, Power Pole
+logistics
+Moves solid items between machines and storage.
+Conveyor Belt, Inserter, Splitter
+fluid_logistics
+Moves fluids between machines and tanks.
+Pipe, Pump, Valve, Fluid Junction
+defense
+Automated weapons. Require power and/or ammo.
+Gun Turret, Laser Turret, Artillery Block
+vehicle
+Enables movement, control, and vehicle-specific functions.
+Control Seat, Wheel, Track, Thruster, Docking Port
+orbital
+High-tier blocks for orbital construction and capabilities.
+Orbital Thruster, Fire Support Module, Supply Drop Bay
+9. Power Network
+Power is the primary operational constraint in the game. Without power, machines stop, turrets go offline, and the factory dies. Players must design and maintain power infrastructure as a first-class concern throughout the entire campaign.
+9.1 Energy Types
+✅  Energy progression:  Three energy tiers exist. Electricity is the foundation. Fuel is a Tier 2 logistics dependency. Exotic energy is a Tier 3-4 parallel network — it runs alongside electricity rather than replacing it. Late-game machines may require both electricity AND exotic energy to operate at full capability.
+Energy Type
+Available From
+Distributed Via
+Primary Use
+Electricity
+Tier 1
+Power poles and wires
+All machines. Universal energy type.
+Fuel (liquid)
+Tier 2
+Fluid pipes and pumps
+Vehicles, heavy generators, chemical production.
+Exotic energy
+Tier 3
+Exotic conduit blocks (parallel to power poles)
+Tier 3-4 machines, orbital systems, megastructure.
+9.2 Electrical Network
+▸   Power flows through a graph of connected nodes (poles) and edges (wires).
+▸   Two blocks are on the same network if a continuous path of valid power connections exists between them.
+▸   Wire connections form automatically between poles within range. Players manage topology through pole placement.
+▸   Each pole has a defined wire_range (max connection distance) and max_connections limit.
+▸   A single construct may contain multiple independent power networks.
+▸   Vehicles carry self-contained power networks. Connection to base networks requires docking port blocks.
+9.3 Power Balance
+✅  Shortage behaviour:  Proportional throttle with turret protection. When supply &lt; demand, all non-turret consumers are slowed proportionally. Turrets always receive full power while any supply exists.
+Condition
+Behaviour
+surplus ≥ 0
+All consumers operate at full rate. Excess charges connected batteries.
+surplus &lt; 0, batteries available
+Batteries discharge to cover deficit. All consumers still operate at full rate if batteries cover it fully.
+surplus &lt; 0, batteries empty
+Turrets protected at full rate. All other consumers throttled: rate = supply / demand_excluding_turrets.
+total_supply = 0
+All consumers offline including turrets. Network is dead.
+10. Logistics Network
+The logistics network moves items and fluids between machines and storage. It is the circulatory system of the factory. Items do not move through structural adjacency — all movement requires explicit logistics components.
+10.1 Solid Item Logistics
+✅  Belt model:  Slot-based conveyor belts. Each belt cell has two item slots (left and right lane). Items advance one cell per tick if the next slot is unoccupied.
+✅  Routing:  Round-robin at splitters. Optional priority side toggle per splitter.
+✅  Idle behaviour:  Machines stall when output is full. Stall propagates backward. No items discarded. Power draw at 25% while stalled.
+▸   Conveyor belts move solid items at a defined rate. Two lanes per belt. Throughput is items per second per lane.
+▸   Inserters pick one item from source cell and deposit in target cell per cycle. Configurable item filter.
+▸   Splitters distribute items across two output belts using round-robin or priority mode.
+▸   Logistics networks do not automatically span separate constructs. A gap of one cell breaks the connection.
+▸   Belt compression (fully occupied belt) must be visually distinguishable from a sparse belt.
+10.2 Fluid Logistics
+✅  Fluid system:  Full fluid simulation with pipes, pumps, and tanks for fuel, coolant, and chemicals.
+▸   Fluids move through pipe networks. Pipes connect fluid-interface blocks within range.
+▸   Pumps are required to move fluids against pressure or across long distances.
+▸   Fluid tanks store liquids and act as buffers in the fluid network.
+▸   Fluid type is a property of the pipe network — a network may carry only one fluid type at a time.
+▸   Mixing incompatible fluids in the same pipe network must be prevented by the system.
+▸   Fluid logistics are separate from solid item logistics. Pipes and conveyor belts are distinct systems.
+10.3 Military Logistics
+Military supply is an extension of the factory logistics system, not a separate mechanic. Ammunition, fuel, replacement droid parts, and repair materials all move through the same logistics network. The player is responsible for designing the supply chain that reaches the front lines.
+▸   Droid logistics brigades can be assigned to run supply routes autonomously between defined waypoints.
+▸   Vehicle convoys can carry bulk materials between bases with player-designed or droid-piloted vehicles.
+▸   Forward operating bases reduce supply line length by producing materials closer to the front.
+11. Factory and Machine Systems
+Factory machines are the functional blocks that perform automated work. They are the reason the logistics network exists and the reason power must be maintained. Every machine follows a common operation model.
+11.1 Common Operation Model
+State
+Condition
+Power Draw
+Producing
+Idle
+No recipe set or awaiting configuration.
+0 kW
+No
+Waiting
+Recipe set but inputs missing or output full.
+25% of operating draw
+No
+Operating
+All inputs present, output has space, power connected.
+100%
+Yes
+No Power
+Not connected to network or network has zero supply.
+0 kW
+No
+11.2 Machine Types
+Machine
+Function
+Power
+Key Requirement
+Miner
+Extracts raw resources from a resource node. Continuous operation.
+30 kW (T1)
+Must be placed over a valid resource node.
+Electric Furnace
+Smelts raw ores into plates. Auto-detects ore type and applies matching recipe.
+60 kW
+Ore input + plate output. No manual recipe selection.
+Assembler
+Executes player-selected recipes. Multiple input slots, one output slot.
+75 kW (Mk1)
+Explicit recipe selection. Up to 3 ingredient types.
+Droid Fabricator
+Produces droids from player blueprints. Consumes components, outputs a droid unit.
+150 kW
+Blueprint must be assigned. Droid emerges as an independent construct.
+Fluid Processor
+Processes raw fluids (e.g. crude oil) into refined products.
+90 kW
+Fluid input and output via pipe connections.
+Turret (gun)
+Automated defense. Attacks enemies in range. Consumes ammo from logistics.
+10 kW
+Ammo supply via inserter from connected storage.
+Turret (laser)
+Automated defense. Energy weapon. No ammo required.
+40 kW
+Continuous power. Protected during shortage.
+Storage Chest
+Passive item buffer. Does not pull or push items independently.
+0 kW
+Inserter required to fill or empty.
+Fluid Tank
+Passive fluid buffer. Stores one fluid type.
+0 kW
+Pipe connection required.
+Generator (steam)
+Burns fuel items to produce electricity.
+Produces 120 kW
+Fuel item supply via logistics.
+Battery
+Stores electrical energy. Charges from surplus, discharges during deficit.
+Net 0
+Wire connection to power network.
+12. Vehicles and Mobility
+Vehicles extend the player&apos;s reach beyond the base. They are freeform constructs — built block by block without a grid constraint. A vehicle&apos;s capability is a direct expression of the materials and design the player invested in it.
+12.1 Vehicle Requirements
+▸   A freeform construct becomes a pilotable vehicle when it contains: one control seat block, at least one propulsion block, and a power source (generator or battery block).
+▸   Vehicles have no separate HP pool. Damage is applied to individual blocks. A vehicle becomes non-functional when critical blocks are destroyed.
+▸   Vehicle maximum speed and acceleration are determined by propulsion block count and type relative to total construct mass.
+▸   Vehicle physics model is arcade-style — predictable, enjoyable, not fully simulated.
+▸   Weather conditions modify vehicle handling as defined in the Weather system (mud, ice, storms).
+12.2 Vehicle Types (V1 and Beyond)
+Type
+Propulsion
+Environment
+V1 Priority
+Ground vehicle
+Wheels or tracks
+Terrain surface
+Required for V1.
+Aircraft
+Atmospheric thrusters
+Air (requires flight blocks)
+Post-V1.
+Orbital vehicle
+Space thrusters
+Space/orbit
+Tier 3+. Required for orbital construction.
+Submarine
+Underwater propulsion
+Water bodies (if present in biomes)
+Post-V1 or cut.
+12.3 Player Control
+▸   Player enters a vehicle by interacting with the control seat. Inputs transfer to the vehicle.
+▸   Entering a vehicle cockpit automatically transitions to first-person perspective.
+▸   Player cannot enter Build Mode while piloting a vehicle. Single-block placement remains available as an exception.
+▸   Exiting a vehicle returns the player to the perspective they were in before entry.
+13. Droid and Military System
+The player begins the campaign alone. By its end they command an industrialised military force. Every unit in that force was designed by the player, produced by their factory, and supplied by their logistics network.
+13.1 Droid Design
+✅  Design model:  Blueprint-based using the same freeform block system as vehicles. A droid is a player-designed freeform construct produced by a Droid Fabricator machine. The player designs the droid blueprint, assigns it to a fabricator, and the factory produces units.
+▸   A valid droid blueprint must contain at minimum: one locomotion block, one power block, and one weapon or tool block.
+▸   Droid capability (durability, speed, firepower, range) is determined entirely by the blocks in the blueprint.
+▸   The same blueprint system used for base sections is used for droid designs.
+▸   Blueprints are saved to the player&apos;s library and can be versioned and updated.
+13.2 Droid Persistence
+✅  Expendability:  Droids are expendable. Lost droids are a material cost — produce more. There is no experience system or persistent unit progression. The player&apos;s investment is in the blueprint design and the factory output rate, not individual units.
+13.3 Control Model
+Control Mode
+How It Works
+Best Used For
+Direct control
+Player physically operates the vehicle or equips a weapon. First-person precision.
+High-value targets. Personal combat. Experiencing the world at ground level.
+Unit orders
+Select a droid or vehicle, issue a waypoint or action command.
+Sending a squad to clear a specific nest. Ordering a transport to a waypoint.
+Brigade commands
+Assign a named group a standing order: defend zone, patrol route, advance on target.
+Holding a defensive line. Running supply convoys. Sustained offensive pressure.
+Programmed routines
+Define a behaviour script using a visual state-machine editor: conditions + actions.
+Automating repetitive tasks. Self-sustaining forward operating bases. Logistics runs.
+▸   The routine editor uses a visual state-machine model with condition nodes (if ammo &lt; X) and action nodes (go to depot).
+▸   V1 routine editor supports 5–8 node types. Expandable post-launch.
+▸   Brigade assignments persist across save/load sessions.
+▸   The player can always override programmed routines with direct orders.
+13.4 Unit Tiers
+Unit Class
+Factory Tier
+Role
+Notes
+Scout Droid
+Tier 1
+Reconnaissance. Reports enemy positions and resource deposits.
+Fast. Fragile. Dozens deployed ahead of each advance.
+Combat Droid
+Tier 1–2
+Holds ground, clears nests, defends logistics nodes.
+Infantry equivalent. Core expendable unit type.
+Heavy Droid
+Tier 2–3
+Anti-armour. Suppression. Engages mid-tier megafauna.
+Expensive to produce. High-value targets in raids.
+Light Vehicle
+Tier 2
+Fast ground combat. Flanking. Scouting in force.
+Player-pilotable or droid-driven.
+Heavy Tank
+Tier 2–3
+Main battle unit against large enemies.
+Player-pilotable. Primary endgame ground weapon.
+Artillery
+Tier 3
+Long-range bombardment. Softens concentrations before advance.
+Batteries of 4–8 per major campaign.
+Orbital Platform
+Tier 3–4
+Fire support, reconnaissance, supply drops, Tier 4 manufacturing.
+Constructed in orbit or launched from ground. Major investment.
+14. Combat and Defense
+14.1 Personal Combat
+✅  Combat feel:  Helldivers 2 style. Weighty, deliberate, every shot matters. The player feels fragile. On-foot combat is dangerous and should feel dangerous. Preparation and positioning matter more than reaction time.
+✅  Loadout system:  The player has a crafted loadout: weapons, armor, and gadgets produced by the factory. Personal effectiveness scales with factory advancement. Early-game loadouts are basic. Late-game loadouts are formidable.
+▸   Personal weapons are crafted items produced through the factory production chain. They are not found or purchased.
+▸   Armor is a crafted item that reduces incoming damage to the player character.
+▸   Gadgets (grenades, scanners, repair tools, etc.) are crafted consumables from the factory.
+▸   The player&apos;s personal inventory carries their loadout. Inventory capacity limits what they can bring into the field.
+14.2 Block-Based Vehicle Durability
+✅  Vehicle health model:  Vehicles have no separate HP pool. Damage is applied to individual blocks. A vehicle becomes progressively less capable as blocks are destroyed — losing weapons, mobility, or power — before becoming non-functional. This is identical to Space Engineers&apos; durability model.
+▸   Each block on a vehicle has its own durability value. Damage reduces that value.
+▸   A block at zero durability is destroyed and removed from the vehicle construct.
+▸   Vehicle classification (pilotable vs non-functional) updates in real time as blocks are destroyed.
+▸   The player can repair vehicle blocks in the field if they have the required materials in their inventory.
+14.3 Defensive Structures
+▸   Turrets are automated. They operate while powered without player input.
+▸   Gun turrets consume ammunition supplied via logistics. They stop firing when ammo supply is exhausted.
+▸   Laser turrets consume power. They are protected from throttling during power shortage.
+▸   Turret fire arcs must be visually readable. The player must be able to see coverage gaps without a separate UI panel.
+▸   Walls and armor provide passive defense. Armor has higher durability than walls. Both absorb damage before machines.
+▸   Enemy targeting follows priority: power generators first, production machines second, logistics third, structural last.
+14.4 Failure and Recovery
+✅  No permadeath:  The player cannot be permanently set back. Death respawns at nearest safe point with inventory retained. Every failure is recoverable. Recovery costs time and resources, making prevention worthwhile.
+15. Items and Resources
+Items are the currency of the production chain. Every block, weapon, droid, and vehicle component is the end product of an item production chain originating at a raw resource node.
+15.1 Item Categories
+Category
+Description
+Examples
+raw
+Extracted directly from environment. Cannot be crafted.
+Iron Ore, Copper Ore, Coal, Crude Oil, Exotic Crystal
+fuel
+Liquid or solid energy carrier. Consumed by generators and vehicles.
+Coal, Refined Fuel, Exotic Fuel
+processed
+Produced by transforming raw resources.
+Iron Plate, Copper Plate, Steel Plate, Refined Oil
+component
+Intermediate manufactured goods used in further assembly.
+Gear, Copper Wire, Circuit Board, Servo Motor
+ammo
+Consumed by weapon systems.
+Firearm Magazine, Artillery Shell, Rocket
+block
+Placeable construct components.
+Foundation, Conveyor Belt, Assembler Mk1, Combat Droid (blueprint output)
+fluid
+Liquids transported via pipe networks.
+Crude Oil, Refined Fuel, Coolant, Chemical Compound
+equipment
+Player-worn items: weapons, armor, gadgets.
+Rifle, Combat Armor, Scanner, Repair Tool
+15.2 Resource Geography
+Resource availability is geographically gated by the danger zone model. This is the primary driver of the push imperative — the factory demands resources that only exist in dangerous territory.
+Tier
+Resources
+Located At
+Gates
+1
+Iron, Copper, Coal, Crude Oil (basic)
+Landing Zone (0–15%)
+All Tier 1 factory, defense, and logistics.
+2
+Rare metals, Polymer compounds, Refined chemicals
+Frontier–Contested (15–55%)
+Droid fabrication, vehicles, advanced logistics, fluid processing.
+3
+Exotic alloys, Crystal matrices, Alien compounds
+Deep Territory–Heartland (55–90%)
+Orbital infrastructure, heavy military, artillery, advanced power.
+4
+Unique bio-materials, Core minerals
+Heartland–Core (75–100%)
+Megastructure components. Final campaign equipment.
+15.3 Recipes
+▸   A recipe defines: inputs (item + quantity), outputs (item + quantity), machine type, cycle time at 1.0x speed.
+▸   Recipes are data records, not code. Adding a recipe requires only a data entry.
+▸   New recipes become available as the player advances through progression tiers.
+▸   Manual crafting is available throughout the game for one item per action. Bulk production requires automation.
+16. Progression
+16.1 Unlock Model
+✅  Progression model:  Hybrid. Production milestones gate tier advancement. Exploration-based artifact discovery provides optional bonus technology outside the tier structure. Milestones keep the main progression predictable. Exploration rewards feel genuinely optional and discoverable.
+Unlock Type
+How It Works
+Controls What
+Tier milestone
+Cumulative production of a defined item (e.g. 100× Circuit Boards) unlocks the next tier.
+All core block types, recipes, and capabilities for that tier.
+Exploration discovery
+Finding alien artifacts or ruins in the world unlocks specific bonus technologies.
+Optional enhancements: efficiency upgrades, exotic recipes, bonus block variants.
+16.2 Tier Structure
+Tier
+Name
+Milestone
+Unlock Zone
+What It Enables
+1
+Bootstrap
+Starting state
+Landing Zone
+Manual craft, basic factory, steam generators, gun turrets, basic droids.
+2
+Industrial
+100× Circuit Boards
+Frontier (15–35%)
+Fast logistics, vehicles, laser turrets, fluid processing, droid blueprints.
+3
+Advanced
+Defined Tier 3 milestone
+Deep Territory (55–75%)
+Orbital construction, heavy military, artillery, exotic energy network.
+4
+Endgame
+Defined Tier 4 milestone
+Heartland (75–100%)
+Megastructure components, final campaign equipment, planetary reclamation.
+16.3 Pacing Requirements
+▸   The first tier must be reachable within the first hour of focused play.
+▸   Each subsequent tier should require progressively more established automation before it can be unlocked.
+▸   Progression must never stall due to obscure or unreachable gating. The player must always have a clear next step.
+▸   Tier progress is always visible in the HUD without opening a menu (e.g. &quot;Circuit Boards: 47 / 100&quot;).
+▸   Locked tiers show their content as a preview so the player always knows what they are working toward.
+▸   The tech tree shape within each tier is TBD — see Open Questions.
+17. Player Interaction
+17.1 Perspective
+✅  Camera model:  Switchable first-person and third-person. The transition is deliberate and tied to context. Third-person is the default for construction and factory management. First-person is used for combat, vehicle operation, and world presence.
+Perspective
+Default For
+Available
+Not Available
+Third-person
+Base operation, construction, factory planning
+Full Build Mode, machine panels, blueprint placement, brigade commands, world map
+Personal weapon precision aim
+First-person
+Combat, vehicle operation, world immersion
+Weapons, vehicle systems, machine panels, limited single-block placement
+Blueprint area selection, world map, brigade command overlay
+17.2 HUD
+✅  HUD model:  Contextual. Minimal by default — expands when the player looks at something or enters a mode. The world communicates information directly wherever possible (machine status lights, belt flow, turret arc indicators). The HUD provides summary readouts that the world cannot.
+▸   HUD always shows: current mode indicator, minimap, hotbar, active alerts (raids, power shortage, supply shortage).
+▸   HUD shows contextually: power network readout (near powered construct), machine status (looking at machine), tier progress (always), brigade status (command mode active).
+▸   Full globe map accessible from HUD. Shows sector status, threat level, resource deposit icons, construct locations, megastructure progress.
+▸   Minimap always visible in corner. Shows immediate area, nearby constructs, enemy indicators.
+▸   Alerts are non-intrusive by default. A raid alert is visible and audible but does not interrupt player action.
+17.3 Personal Inventory
+▸   The player carries a personal inventory of limited capacity.
+▸   Inventory holds gathered items, dismantled materials, crafted items, and equipped loadout.
+▸   Items can be deposited into or withdrawn from connected storage directly from the inventory screen.
+▸   Inventory capacity creates a practical incentive to establish nearby storage when operating in the field.
+18. Narrative and Audio
+18.1 Narrative
+✅  Narrative depth:  Light narrative. Mission briefing at campaign start establishes the premise and objective. Radio chatter triggers at key moments (first raid, first tier unlock, first vehicle, megastructure activation). Environmental storytelling through world details — alien ruins, fossil formations, biological structures — communicates the planet&apos;s history silently.
+▸   A mission briefing plays at campaign start. It establishes the eradication directive and the landing zone.
+▸   Radio chatter triggers at defined campaign milestones. It is brief, non-intrusive, and does not interrupt play.
+▸   No dialogue trees, no named NPCs, no story campaign in the traditional sense. The narrative is the factory and the planet.
+18.2 Visual Identity
+✅  Art direction:  Alien-first. The environment looks deeply, uncomfortably alien. Organic geometry, bioluminescent elements, biological architecture that has no human reference. The player&apos;s structures contrast sharply — sharp edges, artificial light, deliberate industrial geometry imposed on ancient organic chaos. The contrast does narrative work without dialogue. The factory looks like it does not belong here.
+18.3 Audio
+✅  Audio direction:  Original reactive score. Music responds to game state — quiet and ambient during base building, tense and rhythmic during enemy approach, full and driving during active combat. The factory&apos;s mechanical sounds form a layered ambient soundtrack when running at full capacity. A stalled factory is noticeably quieter — silence is an alert.
+▸   Each machine type has a distinct audio signature. A furnace sounds different from an assembler.
+▸   Power shortage is immediately perceptible through audio — machines slow and their audio pitch drops.
+▸   Enemy attacks trigger a distinct audio alert before they reach the base perimeter.
+▸   Killing large enemies must feel satisfying through audio and visual feedback. Scale of enemy = scale of feedback.
+19. Save and Load
+Save reliability is a critical requirement. A 40–60 hour campaign with a complex factory and military force represents enormous player investment. Data loss is one of the most damaging experiences possible.
+19.1 What Gets Saved
+▸   Full terrain and world state including all chunk data.
+▸   All placed blocks: positions, orientations, current durability.
+▸   All storage contents and player personal inventory.
+▸   All machine states: active recipe, production progress, internal buffers.
+▸   All power and logistics network topology and state.
+▸   All fluid network state: pipe contents, tank levels.
+▸   All enemy nest positions, growth state, and current aggression level.
+▸   Player position, current perspective, and active mode.
+▸   All unlocked progression tiers and milestone counters.
+▸   All saved blueprints and droid designs.
+▸   All brigade assignments, unit positions, and active routine states.
+▸   Procedural generation seed (so the world can be reconstructed identically on load).
+19.2 Reliability Requirements
+▸   Saves must be atomic. Write to temp file, validate, rename. An interrupted save must never corrupt the existing save.
+▸   The previous save is preserved as a backup until the new save is confirmed valid.
+▸   Save files are validated on load. Corruption is detected and reported — a broken state must never be loaded silently.
+▸   Manual save is available at any time from the pause menu.
+▸   Autosave triggers at configurable intervals. Default: every 10 minutes. Player is notified on autosave.
+▸   Saving must not cause a perceptible frame hitch. Save operations run on a background thread or are spread across frames.
+▸   Save file versioning must be designed from day one. Schema migrations must be possible as the game evolves.
+20. Non-Functional Requirements
+20.1 Performance
+▸   Stable 60fps on target hardware during normal gameplay including factory simulation, enemy movement, and particle effects.
+▸   Frame rate must not drop below 30fps in the most demanding expected scenarios.
+▸   Chunk loading and unloading must not cause perceptible frame hitches or pop-in.
+▸   Factory simulation in loaded chunks must remain performant regardless of base complexity within V1 scope.
+▸   Belt item simulation must use spatial partitioning — only belt segments with items should tick each frame.
+▸   Power network and logistics routing recalculations must use efficient graph algorithms and caching.
+20.2 Supported Platforms
+▸   V1 targets PC running Windows 10+.
+▸   Mac and Linux are secondary — supported if the engine/toolchain allows without significant extra work.
+▸   Console and mobile are out of scope.
+▸   Minimum spec targets mid-range consumer hardware from ~2019 onwards. Exact spec defined during technical design.
+▸   Architecture must support both Unity and a handmade C++/Vulkan implementation. All logic is engine-agnostic.
+20.3 Architecture
+▸   All game logic must be engine-agnostic. Rendering, input, and audio are isolated behind interfaces.
+▸   Block definitions, recipes, progression tiers, and item data must be data-driven (JSON or equivalent). Adding content requires no code changes.
+▸   The simulation must be deterministic within a session. Float discipline or fixed-point math required for tick-sensitive calculations.
+▸   The construct system must support both grid-aligned (bases) and freeform (vehicles) coordinate models without conflating them.
+▸   Chunk streaming architecture must be designed before any world generation code is written.
+20.4 Scalability
+▸   A base with 1000+ machines must simulate without exponential performance degradation.
+▸   Construct split/merge operations must not pause the simulation for a perceptible duration.
+▸   The world chunk system must support a planet-scale map without loading the entire world into memory.
+20.5 Extensibility
+▸   New block types, recipes, enemy types, and biomes must be addable without modifying core engine code.
+▸   Data hot-reload during development — changing a recipe or block definition reloads without restarting.
+▸   Mod support is not a V1 requirement but data-driven architecture must not actively prevent it.
+20.6 Usability
+▸   The game must be learnable without external documentation. Core mechanics are discoverable through play.
+▸   Tooltips and contextual hints teach how power, logistics, and production work without a scripted tutorial.
+▸   Every invalid action must produce a clear, readable reason. The player must never wonder why something didn&apos;t work.
+20.7 Failure Handling
+▸   Unhandled exceptions must be caught, logged, and shown to the player with a clear message.
+▸   A crash must never overwrite the most recent autosave.
+▸   All recoverable error states (failed save, missing file, invalid blueprint) must have clear UI guidance.
+21. Constraints and Assumptions
+Solo developer. Passion project. No fixed deadline. Scope decisions throughout this document reflect these constraints. When two approaches solve the same problem, the simpler one is preferred unless there is a compelling reason otherwise.
+Single-player only. Architecture assumes one simulation owner. Multiplayer is not in scope and the codebase should not be designed around it, but major architectural choices must not actively prevent future addition.
+Engine is undecided — Unity (primary) or handmade C++/Vulkan (possible pivot). All game logic is written to be engine-agnostic. Rendering, input, and audio are isolated behind interfaces from day one.
+V1 = Early Access launch. A complete core loop playable from landing to Tier 2 milestone. Subsequent tiers, full biome count, orbital construction, and the complete military system are post-EA additions.
+Players are assumed to have basic familiarity with factory-building or survival-crafting games. The game communicates its specific mechanics but does not explain the genre from first principles.
+Fluid simulation, freeform vehicle physics, and orbital construction are architecturally anticipated in V1 but not implemented until V2 or later. The architecture must not prevent their addition.
+22. Open Questions and Undecided Areas
+The following questions are explicitly unresolved. They must be answered before or during design of the systems that depend on them.
+Question
+Depends On It
+Recommendation / Notes
+What is the shape of the tech tree within each tier? Linear, branching, or web?
+Progression system design. UI for tech screen.
+Design alongside Tier 2 content in a dedicated progression design doc. Web (Factorio-style) is the richest but most complex to balance solo.
+What is the exact planet size in km?
+Chunk count, streaming radius, session length, traversal feel.
+Target 40–60hr exploration content. Prototype with a fraction. Suggest ~500km diameter equivalent. Tune after first full run.
+What is the exact enemy footprint scaling formula?
+Core balance. Enemy aggression pacing.
+Start linear: threat = (total_kW × 0.1) + (territory_radius_km × 10) + (cumulative_items × 0.001). Tune from playtesting.
+Does the player have a personal health pool or is death instant?
+Combat design. Personal equipment value.
+Health pool with out-of-combat regeneration. Helldivers-style — squishy but not glass.
+What does the hold condition look like mechanically for cleared zones?
+Campaign sector system.
+Any powered construct within zone bounds counts. Timer-based enemy re-establishment if all player constructs in a zone are destroyed.
+How deep is the droid routine programming system?
+Late-game complexity ceiling. UI design for routine editor.
+Visual state-machine. 5–8 node types in V1. Expand post-launch. Design in Military Systems doc.
+What are the Tier 3 and Tier 4 milestone items and quantities?
+Progression pacing for Acts III–V.
+Design alongside Tier 3 content. Do not lock in until the Tier 2 chain is balanced and playtested.
+How does orbital construction work in practice — launch vs build in orbit?
+Orbital platform system design.
+Space Engineers style: build on ground and launch, or build in orbit directly. Design in Orbital Systems doc (Volume IV or V).
+Are there multiple damage types (kinetic, energy, fire, chemical)?
+Combat balance. Armor design. Enemy attack variety.
+Binary in V1 (damage is damage). Add damage types in post-V1 balance pass if needed.
+What specific alien artifact types exist and what do they unlock?
+Exploration reward design. Bonus tech system.
+Design alongside world generation. 10–15 artifact types with distinct bonus unlocks is a good V1 target.

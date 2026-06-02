@@ -16,23 +16,24 @@ public class Hotbar : MonoBehaviour
 {
     private static readonly BlockDefinition[] Slots =
     {
-        BlockCatalogue.SmallCube,
-        BlockCatalogue.SteamGenerator,
-        BlockCatalogue.SmallBattery,
-        BlockCatalogue.SmallPowerPole,
-        BlockCatalogue.BasicMiner,
-        BlockCatalogue.ElectricFurnace,
-        BlockCatalogue.AssemblerMk1,
-        null,   // slot 8 — Wire tool
-        null,   // slot 9 — Belt tool
+        BlockCatalogue.SmallCube,        // key 1
+        BlockCatalogue.SteamGenerator,   // key 2
+        BlockCatalogue.SmallBattery,     // key 3
+        BlockCatalogue.SmallPowerPole,   // key 4
+        BlockCatalogue.BasicMiner,       // key 5
+        BlockCatalogue.ElectricFurnace,  // key 6
+        BlockCatalogue.AssemblerMk1,     // key 7
+        BlockCatalogue.StorageChest,     // key 8
+        null,   // key 9 — Wire tool
+        null,   // key 0 — Belt tool
     };
 
     public int             SelectedIndex      { get; private set; }
     public float           RotationAngleY     => _rotationAngleY;    // 0°–345° in 15° steps on terrain
     public int             RotationSteps      => Mathf.RoundToInt(_rotationAngleY / 90f) % 4; // 0–3
     public BlockDefinition SelectedDefinition => NoBlockActive ? null : Slots[SelectedIndex];
-    public bool            IsWireMode         => SelectedIndex == 7;   // slot 8 key
-    public bool            IsBeltMode         => SelectedIndex == 8;   // slot 9 key
+    public bool            IsWireMode         => SelectedIndex == 8;   // key 9
+    public bool            IsBeltMode         => SelectedIndex == 9;   // key 0
     public bool            IsToolMode         => IsWireMode || IsBeltMode;
     public bool            NoBlockActive      => IsToolMode || _deselected;
 
@@ -105,7 +106,9 @@ public class Hotbar : MonoBehaviour
     {
         for (int i = 0; i < Slots.Length; i++)
         {
-            if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+            // Keys 1–9 map to slots 0–8; key 0 maps to slot 9 (Belt tool).
+            KeyCode key = i < 9 ? (KeyCode)((int)KeyCode.Alpha1 + i) : KeyCode.Alpha0;
+            if (Input.GetKeyDown(key))
             {
                 if (i == SelectedIndex && Slots[i] != null)
                     _deselected = !_deselected;     // same slot again: toggle cancel
@@ -171,7 +174,7 @@ public class Hotbar : MonoBehaviour
             numRT.anchoredPosition = new Vector2(4f, SlotH - 14f);
             numRT.sizeDelta        = new Vector2(20f, 14f);
             numText.color = ColNumBadge;
-            numText.text  = (i + 1).ToString();
+            numText.text  = i < 9 ? (i + 1).ToString() : "0";
 
             // Item name — full-slot rect, centred, updated every frame.
             var label   = UIRoot.MakeText(slot.transform, "Label", 12, TextAlignmentOptions.Center);
@@ -192,7 +195,7 @@ public class Hotbar : MonoBehaviour
         for (int i = 0; i < Slots.Length; i++)
         {
             string name   = Slots[i] != null ? Slots[i].DisplayName
-                          : i == 7           ? "Wire Tool"
+                          : i == 8           ? "Wire Tool"
                           :                   "Belt Tool";
             string suffix = (i == SelectedIndex && Slots[i] != null && _rotationAngleY != 0f)
                 ? $" ({_rotationAngleY:F0}°)"

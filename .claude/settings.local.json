@@ -18,7 +18,11 @@
       "Bash(npm install *)",
       "Bash(node -e \"require\\('docx'\\); console.log\\('ok'\\)\")",
       "Bash(npm root *)",
-      "Bash(node -e \"const m = require\\('$\\(npm root -g\\)/docx'\\); console.log\\('ok'\\)\")"
+      "Bash(node -e \"const m = require\\('$\\(npm root -g\\)/docx'\\); console.log\\('ok'\\)\")",
+      "Bash(pandoc Space_Crusade_Requirements_v4.docx -o - --to plain)",
+      "Bash(pandoc Space_Crusade_SDD.docx -o - --to plain)",
+      "Bash(where pandoc *)",
+      "PowerShell(Test-Path \"C:\\\\dev\\\\Reclamation\" ; [System.IO.Directory]::GetFileSystemEntries\\(\"C:\\\\dev\\\\Reclamation\"\\))"
     ]
   }
 }

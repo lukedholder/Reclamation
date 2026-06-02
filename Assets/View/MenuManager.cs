@@ -4,9 +4,11 @@
 // Also handles all ESC routing so no other component needs to intercept ESC.
 //
 // ESC priority:
-//   1. Machine configuration panel open  →  close it
-//   2. A menu panel is open              →  route via panel.BackTarget
-//   3. Nothing open                      →  open pause menu
+//   1a. Machine configuration panel open  →  close it
+//   1b. Chest contents panel open         →  close it
+//   1c. Inventory panel open              →  close it
+//   2.  A menu panel is open              →  route via panel.BackTarget
+//   3.  Nothing open                      →  open pause menu
 //
 // Input suppression:
 //   All game-input components (Hotbar, BlockPlacer, etc.) guard with:
@@ -19,7 +21,7 @@
 //   MachineInteractor manages cursor independently for its recipe panel.
 //
 // Setup: attach to any persistent scene object (e.g. GameManager).
-//        Player GameObject must have a MachineInteractor component.
+//        Player GameObject must have MachineInteractor and ChestInteractor components.
 
 using UnityEngine;
 
@@ -37,6 +39,8 @@ public class MenuManager : MonoBehaviour
     private SettingsPanel  _settings;
 
     private MachineInteractor _machineInteractor;
+    private ChestInteractor   _chestInteractor;
+    private PlayerInventory   _inventory;
 
     // ── Unity ─────────────────────────────────────────────────────────────────
 
@@ -48,6 +52,8 @@ public class MenuManager : MonoBehaviour
     private void Start()
     {
         _machineInteractor = FindObjectOfType<MachineInteractor>();
+        _chestInteractor   = FindObjectOfType<ChestInteractor>();
+        _inventory         = FindObjectOfType<PlayerInventory>();
 
         _pause    = PauseMenuPanel.Create(this);
         _settings = SettingsPanel.Create(this);
@@ -61,10 +67,24 @@ public class MenuManager : MonoBehaviour
     {
         if (!Input.GetKeyDown(KeyCode.Escape)) return;
 
-        // Priority 1: machine config panel open → close it, stay in gameplay.
+        // Priority 1a: machine config panel open → close it, stay in gameplay.
         if (_machineInteractor != null && _machineInteractor.IsOpen)
         {
             _machineInteractor.Close();
+            return;
+        }
+
+        // Priority 1b: chest contents panel open → close it, stay in gameplay.
+        if (_chestInteractor != null && _chestInteractor.IsOpen)
+        {
+            _chestInteractor.Close();
+            return;
+        }
+
+        // Priority 1c: inventory panel open → close it, stay in gameplay.
+        if (_inventory != null && _inventory.IsOpen)
+        {
+            _inventory.Close();
             return;
         }
 
