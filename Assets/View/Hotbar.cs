@@ -14,24 +14,14 @@ using TMPro;
 
 public class Hotbar : MonoBehaviour
 {
-    private static readonly BlockDefinition[] Slots =
-    {
-        BlockCatalogue.SmallCube,        // key 1
-        BlockCatalogue.SteamGenerator,   // key 2
-        BlockCatalogue.GunTurret,        // key 3
-        BlockCatalogue.SmallPowerPole,   // key 4
-        BlockCatalogue.BasicMiner,       // key 5
-        BlockCatalogue.ElectricFurnace,  // key 6
-        BlockCatalogue.AssemblerMk1,     // key 7
-        BlockCatalogue.StorageChest,     // key 8
-        null,   // key 9 — Wire tool
-        null,   // key 0 — Belt tool
-    };
+    // Mutable so BuildMenu can reassign any of the 8 block slots (indices 0–7).
+    // Indices 8 and 9 are reserved for Wire and Belt tools and are never reassigned.
+    private BlockDefinition[] _slots;
 
     public int             SelectedIndex      { get; private set; }
     public float           RotationAngleY     => _rotationAngleY;    // 0°–345° in 15° steps on terrain
     public int             RotationSteps      => Mathf.RoundToInt(_rotationAngleY / 90f) % 4; // 0–3
-    public BlockDefinition SelectedDefinition => NoBlockActive ? null : Slots[SelectedIndex];
+    public BlockDefinition SelectedDefinition => NoBlockActive ? null : _slots[SelectedIndex];
     public bool            IsWireMode         => SelectedIndex == 8;   // key 9
     public bool            IsBeltMode         => SelectedIndex == 9;   // key 0
     public bool            IsToolMode         => IsWireMode || IsBeltMode;
@@ -62,7 +52,41 @@ public class Hotbar : MonoBehaviour
     private void Awake()
     {
         _raycaster = GetComponent<Raycaster>();
+
+        // Default slot assignments — can be overwritten at runtime via AssignSlot().
+        _slots = new BlockDefinition[]
+        {
+            BlockCatalogue.SmallCube,        // key 1
+            BlockCatalogue.SteamGenerator,   // key 2
+            BlockCatalogue.GunTurret,        // key 3
+            BlockCatalogue.SmallPowerPole,   // key 4
+            BlockCatalogue.BasicMiner,       // key 5
+            BlockCatalogue.ElectricFurnace,  // key 6
+            BlockCatalogue.AssemblerMk1,     // key 7
+            BlockCatalogue.StorageChest,     // key 8
+            null,                            // key 9 — Wire tool  (not reassignable)
+            null,                            // key 0 — Belt tool  (not reassignable)
+        };
     }
+
+    // ── Public API (called by BuildMenu) ──────────────────────────────────────
+
+    /// <summary>
+    /// Assigns a block definition to the given block slot (0–7) and activates it.
+    /// Slots 8–9 (wire/belt tools) are ignored.
+    /// </summary>
+    public void AssignSlot(int slotIndex, BlockDefinition def)
+    {
+        if (slotIndex < 0 || slotIndex > 7) return;
+        _slots[slotIndex] = def;
+        SelectedIndex   = slotIndex;
+        _deselected     = false;
+        _rotationAngleY = 0f;
+    }
+
+    /// <summary>Returns the definition currently in a given slot (null for tools or empty).</summary>
+    public BlockDefinition GetSlot(int slotIndex) =>
+        (slotIndex >= 0 && slotIndex < _slots.Length) ? _slots[slotIndex] : null;
 
     private void Start()
     {
@@ -71,12 +95,11 @@ public class Hotbar : MonoBehaviour
 
     private void Update()
     {
-        // Suppress gameplay input while any menu is open; still refresh the HUD visuals.
-        if (!MenuManager.IsOpen)
+        // Suppress gameplay input while any menu (pause or build) is open.
+        if (!MenuManager.IsOpen && !BuildMenu.IsMenuOpen)
         {
             HandleScrollInput();
             HandleNumberInput();
-            HandleDeselect();
         }
         RefreshHUD();
     }
@@ -104,13 +127,13 @@ public class Hotbar : MonoBehaviour
 
     private void HandleNumberInput()
     {
-        for (int i = 0; i < Slots.Length; i++)
+        for (int i = 0; i < _slots.Length; i++)
         {
             // Keys 1–9 map to slots 0–8; key 0 maps to slot 9 (Belt tool).
             KeyCode key = i < 9 ? (KeyCode)((int)KeyCode.Alpha1 + i) : KeyCode.Alpha0;
             if (Input.GetKeyDown(key))
             {
-                if (i == SelectedIndex && Slots[i] != null)
+                if (i == SelectedIndex && _slots[i] != null)
                     _deselected = !_deselected;     // same slot again: toggle cancel
                 else
                 {
@@ -122,18 +145,11 @@ public class Hotbar : MonoBehaviour
         }
     }
 
-    private void HandleDeselect()
-    {
-        // Q hard-cancels the active block without changing the selected slot.
-        if (Input.GetKeyDown(KeyCode.Q) && Slots[SelectedIndex] != null)
-            _deselected = true;
-    }
-
     // ── HUD building (called once in Start) ───────────────────────────────────
 
     private void BuildHUD()
     {
-        float totalW = Slots.Length * SlotW + (Slots.Length - 1) * SlotGap;
+        float totalW = _slots.Length * SlotW + (_slots.Length - 1) * SlotGap;
 
         // Root container — anchored bottom-centre.
         var bar   = new GameObject("Hotbar");
@@ -145,10 +161,10 @@ public class Hotbar : MonoBehaviour
         barRT.anchoredPosition = new Vector2(0f, 8f);
         barRT.sizeDelta        = new Vector2(totalW, SlotH);
 
-        _slotBgs    = new Image[Slots.Length];
-        _slotLabels = new TextMeshProUGUI[Slots.Length];
+        _slotBgs    = new Image[_slots.Length];
+        _slotLabels = new TextMeshProUGUI[_slots.Length];
 
-        for (int i = 0; i < Slots.Length; i++)
+        for (int i = 0; i < _slots.Length; i++)
         {
             // Slot panel
             var slot   = new GameObject($"Slot{i + 1}");
@@ -192,12 +208,12 @@ public class Hotbar : MonoBehaviour
 
     private void RefreshHUD()
     {
-        for (int i = 0; i < Slots.Length; i++)
+        for (int i = 0; i < _slots.Length; i++)
         {
-            string name   = Slots[i] != null ? Slots[i].DisplayName
+            string name   = _slots[i] != null ? _slots[i].DisplayName
                           : i == 8           ? "Wire Tool"
                           :                   "Belt Tool";
-            string suffix = (i == SelectedIndex && Slots[i] != null && _rotationAngleY != 0f)
+            string suffix = (i == SelectedIndex && _slots[i] != null && _rotationAngleY != 0f)
                 ? $" ({_rotationAngleY:F0}°)"
                 : "";
 

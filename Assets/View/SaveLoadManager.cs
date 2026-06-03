@@ -47,6 +47,13 @@ public class SaveLoadManager : MonoBehaviour
 
     // ── Unity ─────────────────────────────────────────────────────────────────
 
+    private void Start()
+    {
+        // Auto-load the last save on startup.  Silent no-op if no file exists yet.
+        if (File.Exists(SavePath))
+            LoadGame();
+    }
+
     private void Update()
     {
         if (MenuManager.IsOpen) return;
@@ -247,6 +254,14 @@ public class SaveLoadManager : MonoBehaviour
                 else if (!string.IsNullOrEmpty(bd.recipeId)
                          && RecipeById.TryGetValue(bd.recipeId, out var recipe))
                     sim.Machines.Get(block.Id)?.SetRecipe(recipe);
+
+                // Turrets get a barrel + targeting component.
+                if (def.FunctionalType == FunctionalType.Turret)
+                {
+                    var tm = sim.Machines.Get<TurretMachine>(block.Id);
+                    if (tm != null)
+                        go.AddComponent<TurretView>().Init(block, tm);
+                }
 
                 blockCount++;
             }

@@ -271,7 +271,7 @@ public static class BlockCatalogue
     {
         Id               = "gun_turret",
         DisplayName      = "Gun Turret",
-        Category         = BlockCategory.Production,
+        Category         = BlockCategory.Defense,
         FunctionalType   = FunctionalType.Turret,
         TierRequired     = 0,
         SizeX            = 1, SizeY = 2, SizeZ = 1,

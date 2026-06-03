@@ -4,9 +4,10 @@
 // Also handles all ESC routing so no other component needs to intercept ESC.
 //
 // ESC priority:
-//   1a. Machine configuration panel open  →  close it
-//   1b. Chest contents panel open         →  close it
-//   1c. Inventory panel open              →  close it
+//   1a. Build menu open                   →  close it
+//   1b. Machine configuration panel open  →  close it
+//   1c. Chest contents panel open         →  close it
+//   1d. Inventory panel open              →  close it
 //   2.  A menu panel is open              →  route via panel.BackTarget
 //   3.  Nothing open                      →  open pause menu
 //
@@ -38,6 +39,7 @@ public class MenuManager : MonoBehaviour
     private PauseMenuPanel _pause;
     private SettingsPanel  _settings;
 
+    private BuildMenu         _buildMenu;
     private MachineInteractor _machineInteractor;
     private ChestInteractor   _chestInteractor;
     private PlayerInventory   _inventory;
@@ -51,6 +53,7 @@ public class MenuManager : MonoBehaviour
 
     private void Start()
     {
+        _buildMenu         = FindObjectOfType<BuildMenu>();
         _machineInteractor = FindObjectOfType<MachineInteractor>();
         _chestInteractor   = FindObjectOfType<ChestInteractor>();
         _inventory         = FindObjectOfType<PlayerInventory>();
@@ -67,21 +70,28 @@ public class MenuManager : MonoBehaviour
     {
         if (!Input.GetKeyDown(KeyCode.Escape)) return;
 
-        // Priority 1a: machine config panel open → close it, stay in gameplay.
+        // Priority 1a: build menu open → close it.
+        if (_buildMenu != null && _buildMenu.IsOpen)
+        {
+            _buildMenu.Close();
+            return;
+        }
+
+        // Priority 1b: machine config panel open → close it, stay in gameplay.
         if (_machineInteractor != null && _machineInteractor.IsOpen)
         {
             _machineInteractor.Close();
             return;
         }
 
-        // Priority 1b: chest contents panel open → close it, stay in gameplay.
+        // Priority 1c: chest contents panel open → close it, stay in gameplay.
         if (_chestInteractor != null && _chestInteractor.IsOpen)
         {
             _chestInteractor.Close();
             return;
         }
 
-        // Priority 1c: inventory panel open → close it, stay in gameplay.
+        // Priority 1d: inventory panel open → close it, stay in gameplay.
         if (_inventory != null && _inventory.IsOpen)
         {
             _inventory.Close();
