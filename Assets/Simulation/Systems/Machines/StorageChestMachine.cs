@@ -38,7 +38,7 @@ public class StorageChestMachine : BaseMachine
     // Internal storage: itemId → quantity.
     private readonly Dictionary<string, int> _storage = new Dictionary<string, int>();
 
-    // ── Public accessors (for HUD / debug) ───────────────────────────────────
+    // ── Public accessors (for HUD / debug / UI) ──────────────────────────────
 
     public int TotalStored
     {
@@ -46,6 +46,42 @@ public class StorageChestMachine : BaseMachine
     }
 
     public IReadOnlyDictionary<string, int> Contents => _storage;
+
+    // ── Player interaction (drag-drop UI) ─────────────────────────────────────
+
+    /// <summary>
+    /// Removes up to <paramref name="qty"/> of <paramref name="itemId"/> from storage.
+    /// Returns what was actually taken (quantity may be less if fewer were stored).
+    /// </summary>
+    public ItemStack TakeFromStorage(string itemId, int qty)
+    {
+        if (!_storage.TryGetValue(itemId, out int stored) || stored <= 0)
+            return default;
+
+        int taken     = qty < stored ? qty : stored;
+        int remaining = stored - taken;
+        if (remaining <= 0) _storage.Remove(itemId);
+        else                _storage[itemId] = remaining;
+
+        return new ItemStack(itemId, taken);
+    }
+
+    /// <summary>
+    /// Adds up to <paramref name="qty"/> of <paramref name="itemId"/> to storage.
+    /// Returns the number actually added (capped by remaining capacity).
+    /// </summary>
+    public int GiveToStorage(string itemId, int qty)
+    {
+        if (qty <= 0) return 0;
+
+        int space = TotalCapacity - TotalStored;
+        if (space <= 0) return 0;
+
+        int added = qty < space ? qty : space;
+        _storage.TryGetValue(itemId, out int existing);
+        _storage[itemId] = existing + added;
+        return added;
+    }
 
     // ── Construction ──────────────────────────────────────────────────────────
 

@@ -282,6 +282,8 @@ GameObject:
   - component: {fileID: 671282056}
   - component: {fileID: 671282057}
   - component: {fileID: 671282058}
+  - component: {fileID: 671282059}
+  - component: {fileID: 671282060}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -511,6 +513,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _portMaterial: {fileID: 2100000, guid: 0d086f98bd4c5d04e9e0f258dc05a3c6, type: 2}
   _lineMaterial: {fileID: 2100000, guid: aeba816e11dc17c44ab7b981171e5780, type: 2}
+--- !u!114 &671282059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 671282042}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42f5a96f61f46b64694906779020db82, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &671282060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 671282042}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cfb243ffafd4994d8e900aaf1c2a0ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _slotCount: 32
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0
@@ -857,6 +884,7 @@ GameObject:
   - component: {fileID: 1963636166}
   - component: {fileID: 1963636167}
   - component: {fileID: 1963636168}
+  - component: {fileID: 1963636169}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -956,6 +984,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 53795f6e97229b74c8d4d20a24b6edbc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &1963636169
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1963636161}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44dff5e6e3ff43f4799be0825564c886, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _library: {fileID: 11400000, guid: af016dde7f9be6045b2e5f1b6e78d07b, type: 2}
 --- !u!1 &1989232365
 GameObject:
   m_ObjectHideFlags: 0
