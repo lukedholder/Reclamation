@@ -19,6 +19,7 @@ public class Simulation
     public readonly PowerSystem     Power      = new PowerSystem();
     public readonly MachineSystem   Machines   = new MachineSystem();
     public readonly LogisticsSystem Logistics  = new LogisticsSystem();
+    public readonly EnemySystem     Enemies    = new EnemySystem();
 
     private int _nextBlockId     = 1;
     private int _nextConstructId = 1;
@@ -29,6 +30,7 @@ public class Simulation
         Power.Tick(MachineSystem.TickDelta, Blocks);        // 1. set OperatingRate on all consumers
         Machines.Tick();                                    // 2. advance production at throttled rate
         Logistics.Tick(MachineSystem.TickDelta, Blocks);   // 3. move items between machines
+        Enemies.Tick(MachineSystem.TickDelta);             // 4. enemy AI tick (placeholder)
     }
 
     // Creates an empty construct and registers it. Called before placing the first block.

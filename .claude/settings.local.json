@@ -22,7 +22,11 @@
       "Bash(pandoc Space_Crusade_Requirements_v4.docx -o - --to plain)",
       "Bash(pandoc Space_Crusade_SDD.docx -o - --to plain)",
       "Bash(where pandoc *)",
-      "PowerShell(Test-Path \"C:\\\\dev\\\\Reclamation\" ; [System.IO.Directory]::GetFileSystemEntries\\(\"C:\\\\dev\\\\Reclamation\"\\))"
+      "PowerShell(Test-Path \"C:\\\\dev\\\\Reclamation\" ; [System.IO.Directory]::GetFileSystemEntries\\(\"C:\\\\dev\\\\Reclamation\"\\))",
+      "Bash(Get-ChildItem -Path \"C:\\\\dev\\\\Reclamation\\\\Assets\" -Recurse -Filter \"*.cs\")",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(xargs grep -l \"procedural\\\\|terrain\\\\|generation\\\\|WorldGen\\\\|ProceduralGen\" -i)"
     ]
   }
 }

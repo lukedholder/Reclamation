@@ -110,6 +110,30 @@ public static class ItemCatalogue
         Weight            = 0.1f,
     };
 
+    // ── Ammo ──────────────────────────────────────────────────────────────────
+
+    public static readonly ComponentItem RifleRound = new ComponentItem
+    {
+        Id                = "rifle_round",
+        DisplayName       = "Rifle Round",
+        Description       = "5.56 mm cartridge for the Hunting Rifle. Craft in the Assembler.",
+        Tier              = 0,
+        CraftedByRecipeId = "craft_rifle_rounds",
+        MaxStackSize      = 200,
+        Weight            = 0.02f,
+    };
+
+    public static readonly ComponentItem TurretRound = new ComponentItem
+    {
+        Id                = "turret_round",
+        DisplayName       = "Turret Round",
+        Description       = "Heavy-calibre slug for auto-turrets. Craft in the Assembler.",
+        Tier              = 0,
+        CraftedByRecipeId = "craft_turret_rounds",
+        MaxStackSize      = 200,
+        Weight            = 0.05f,
+    };
+
     // ── Weapons ───────────────────────────────────────────────────────────────
 
     public static readonly WeaponItem IronWrench = new WeaponItem
@@ -149,6 +173,8 @@ public static class ItemCatalogue
         IronOre, CopperOre, Coal,
         // Components
         IronPlate, CopperPlate, IronGear, CopperWire, CircuitBoard,
+        // Ammo
+        RifleRound, TurretRound,
         // Weapons
         IronWrench, HuntingRifle,
     };

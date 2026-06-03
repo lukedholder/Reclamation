@@ -265,6 +265,42 @@ public static class BlockCatalogue
         },
     };
 
+    // --- V1 Combat Blocks ---
+
+    public static readonly BlockDefinition GunTurret = new BlockDefinition
+    {
+        Id               = "gun_turret",
+        DisplayName      = "Gun Turret",
+        Category         = BlockCategory.Production,
+        FunctionalType   = FunctionalType.Turret,
+        TierRequired     = 0,
+        SizeX            = 1, SizeY = 2, SizeZ = 1,
+        MaxDurability    = 300,
+        Mass             = 40f,
+        PowerDrawKW         = 20f,
+        PowerOutputKW       = 0f,
+        PowerInterface      = PowerInterface.Node,
+        MaxWireConnections  = 1,
+        WireRangeUnits      = 6f,
+        ConstructionCost = new[]
+        {
+            new ItemStack("iron_plate",   4),
+            new ItemStack("iron_gear",    2),
+            new ItemStack("circuit_board",1),
+        },
+        Params = new TurretParams
+        {
+            Range          = 15f,
+            ShotsPerSecond = 1f,
+            DamagePerShot  = 25f,
+        },
+        Ports = new[]
+        {
+            // Single input port on the back face — belt-feed ammo from behind.
+            new PortDefinition { Index = 0, Type = PortType.Input, Face = FaceDir.NegZ },
+        },
+    };
+
     // --- Catalogue enumeration (used by save / load) ---
 
     public static System.Collections.Generic.IReadOnlyList<BlockDefinition> All() => new[]
@@ -273,5 +309,6 @@ public static class BlockCatalogue
         SteamGenerator, SmallBattery, SmallPowerPole,
         BasicMiner, ElectricFurnace, AssemblerMk1,
         StorageChest,
+        GunTurret,
     };
 }

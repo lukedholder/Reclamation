@@ -70,6 +70,14 @@ public class BlockPlacer : MonoBehaviour
         // If this is a miner placed on terrain, auto-configure it from any ore node below.
         if (blockView == null && def.FunctionalType == FunctionalType.Miner)
             TryBindMinerToNode(block, def, go.transform.position);
+
+        // Attach turret-specific barrel + targeting logic.
+        if (def.FunctionalType == FunctionalType.Turret)
+        {
+            var tm = Sim.Machines.Get<TurretMachine>(block.Id);
+            if (tm != null)
+                go.AddComponent<TurretView>().Init(block, tm);
+        }
     }
 
     private void TryBindMinerToNode(Block block, BlockDefinition def, Vector3 worldCenter)

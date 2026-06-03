@@ -33,6 +33,7 @@ public class MachineSystem
             FunctionalType.Assembler => new AssemblerMachine(block),
             FunctionalType.Furnace   => new FurnaceMachine(block),
             FunctionalType.Storage   => new StorageChestMachine(block),
+            FunctionalType.Turret    => new TurretMachine(block),
             _                        => null,
         };
 

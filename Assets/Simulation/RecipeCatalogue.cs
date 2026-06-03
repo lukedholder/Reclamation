@@ -71,12 +71,35 @@ public static class RecipeCatalogue
         Outputs     = new List<ItemStack> { new ItemStack("circuit_board", 1) },
     };
 
+    // ── Ammo ──────────────────────────────────────────────────────────────────
+
+    public static readonly Recipe CraftRifleRounds = new Recipe
+    {
+        Id          = "craft_rifle_rounds",
+        DisplayName = "Rifle Rounds",
+        MachineType = FunctionalType.Assembler,
+        CycleTime   = 1.0f,
+        Inputs      = new List<ItemStack> { new ItemStack("iron_plate", 1) },
+        Outputs     = new List<ItemStack> { new ItemStack("rifle_round", 10) },
+    };
+
+    public static readonly Recipe CraftTurretRounds = new Recipe
+    {
+        Id          = "craft_turret_rounds",
+        DisplayName = "Turret Rounds",
+        MachineType = FunctionalType.Assembler,
+        CycleTime   = 1.0f,
+        Inputs      = new List<ItemStack> { new ItemStack("iron_plate", 2) },
+        Outputs     = new List<ItemStack> { new ItemStack("turret_round", 20) },
+    };
+
     // ── Catalogue enumeration ─────────────────────────────────────────────────
 
     public static Recipe[] All() => new[]
     {
         SmeltIron, SmeltCopper,
         IronGearWheel, CopperWire, CircuitBoard,
+        CraftRifleRounds, CraftTurretRounds,
     };
 
     // Returns every recipe compatible with the given machine type.

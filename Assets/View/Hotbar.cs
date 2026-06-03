@@ -18,7 +18,7 @@ public class Hotbar : MonoBehaviour
     {
         BlockCatalogue.SmallCube,        // key 1
         BlockCatalogue.SteamGenerator,   // key 2
-        BlockCatalogue.SmallBattery,     // key 3
+        BlockCatalogue.GunTurret,        // key 3
         BlockCatalogue.SmallPowerPole,   // key 4
         BlockCatalogue.BasicMiner,       // key 5
         BlockCatalogue.ElectricFurnace,  // key 6
