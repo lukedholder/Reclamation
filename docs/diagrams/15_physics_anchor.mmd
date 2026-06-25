@@ -1,0 +1,19 @@
+flowchart TB
+    subgraph SIM["Simulation — anchor state"]
+        P1["PlaceBlock(... isOnTerrain)"] --> P2["RecalcAnchor(constructId)"]
+        R1["RemoveBlock(id) -> split into components"] --> R2["RecalcAnchor(original + each new)"]
+        P2 --> A{"any member block<br/>IsOnTerrain?"}
+        R2 --> A
+        A -- yes --> AN["Construct.IsAnchored = true"]
+        A -- no --> AF["Construct.IsAnchored = false"]
+    end
+
+    subgraph VIEW["View — ConstructView.ApplyPhysics()"]
+        AN --> V1{"IsAnchored?"}
+        AF --> V1
+        V1 -- "true (grounded)" --> VG["destroy Rigidbody if any<br/>(static compound collider)"]
+        V1 -- "false (floating)" --> VR["add Rigidbody:<br/>mass = sum block Mass,<br/>useGravity = true,<br/>Continuous collision"]
+    end
+
+    VR --> G["piece falls / can be driven (vehicle)"]
+    note1["Space Engineers model:<br/>cut a structure off its terrain contact<br/>and it becomes a dynamic body."]

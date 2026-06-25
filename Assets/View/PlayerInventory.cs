@@ -128,7 +128,7 @@ public class PlayerInventory : MonoBehaviour
             return;
         }
 
-        if (Input.GetKeyDown(KeyCode.I))
+        if (GameInput.InventoryDown)
         {
             if (_open && !_openedByMachine) ClosePanel();
             else if (!_open)               ShowStandalone();

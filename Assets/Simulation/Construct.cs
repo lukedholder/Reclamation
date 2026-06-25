@@ -35,10 +35,16 @@ public class Construct
     // Determines which simulation systems apply and what the HUD displays.
     public ConstructType Type = ConstructType.Structure;
 
-    // True if this construct contains at least one Foundation block touching terrain.
-    // ConstructView uses this to set Rigidbody.isKinematic = IsAnchored,
-    // preventing anchored bases from falling or being pushed by physics.
+    // True if any member block was placed on terrain (Block.IsOnTerrain).
+    // Recomputed by Simulation.RecalcAnchor() after any placement or removal.
+    // Anchored → no Rigidbody (static collider).  Floating → dynamic Rigidbody with gravity.
     public bool IsAnchored;
+
+    // When true, RecalcAnchor() forces IsAnchored = false even if the construct
+    // still has terrain-touching blocks. Set when a vehicle is released from its
+    // base (e.g. on entering pilot mode) so a ground-built craft can fly without
+    // dismantling its terrain contact. Persisted in saves.
+    public bool ManualUnanchored;
 
     // True if the construct has a Seat, at least one Propulsion block, and a power source.
     // Gates the ability for a player to enter pilot mode on this construct.

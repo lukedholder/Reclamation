@@ -1,0 +1,23 @@
+flowchart TB
+    A["Left-click (block selected on hotbar)"] --> B{"Raycast hit?"}
+    B -- no --> Z["ignore"]
+    B -- yes --> C{"Hit a BlockView?"}
+    C -- "yes (block-on-block)" --> D["PlaceOnBlock:<br/>snap to hit face plane,<br/>compute GridPos in hit construct,<br/>rot = hotbar RotationSteps"]
+    C -- "no (terrain)" --> E["PlaceOnTerrain:<br/>new Construct, GridPos.Zero,<br/>isOnTerrain = true,<br/>construct carries Y-rotation"]
+    D --> F["Sim.PlaceBlock(def, constructId, gridPos, rot, isOnTerrain)"]
+    E --> F
+    F --> G["spawn Cube GameObject + BlockView"]
+    G --> H{"FunctionalType?"}
+    H -- Miner --> I["bind to OreNode under footprint"]
+    H -- Turret --> J["add TurretView (barrel + targeting)"]
+    H -- other --> K["done"]
+    F --> L["RecalcAnchor(constructId)"]
+
+    subgraph RM["Right-click — dismantle"]
+        R1["Sim.RemoveBlock(id)"] --> R2["flood-fill connectivity"]
+        R2 --> R3{"split?"}
+        R3 -- yes --> R4["new Construct per component<br/>+ reparent BlockViews"]
+        R3 -- no --> R5["same construct"]
+        R4 --> R6["RecalcAnchor(all) -> ApplyPhysics()"]
+        R5 --> R6
+    end

@@ -1,0 +1,58 @@
+classDiagram
+    class GameManager {
+        <<MonoBehaviour>>
+        +Simulation Simulation
+        +ResetSimulation() Simulation
+        +Update() : 20 Hz accumulator
+        +OnGUI() : debug overlay
+    }
+    class ConstructView {
+        <<MonoBehaviour>>
+        +Construct Construct
+        +Init(Construct)
+        +ApplyPhysics() : add/remove Rigidbody
+    }
+    class BlockView {
+        <<MonoBehaviour>>
+        +Block Block
+        +Init(Block)
+    }
+    class Raycaster {
+        <<MonoBehaviour>>
+        +bool HasHit
+        +RaycastHit Hit
+    }
+    class Hotbar {
+        <<MonoBehaviour>>
+        +int SelectedIndex
+        +BlockDefinition SelectedDefinition
+        +AssignSlot(i, def)
+    }
+    class BlockPlacer {
+        <<MonoBehaviour>>
+        +TryPlace()
+    }
+    class BlockDismantler {
+        <<MonoBehaviour>>
+        +TryDismantle()
+        +HandleSplit(cv, splitIds)
+    }
+    class GhostBlock {
+        <<MonoBehaviour>>
+        +Show(def, pose, valid)
+        +Hide()
+    }
+    class BuildMenu {
+        <<MonoBehaviour>>
+        +static IsMenuOpen
+        +OpenMenu() / CloseMenu()
+    }
+    GameManager "1" *-- "*" ConstructView : owns
+    ConstructView "1" *-- "*" BlockView : parent transform
+    BlockPlacer --> Raycaster
+    BlockPlacer --> Hotbar
+    BlockPlacer --> GhostBlock
+    BlockDismantler --> Raycaster
+    BuildMenu --> Hotbar : assigns slots
+    BlockPlacer ..> GameManager : Sim.PlaceBlock()
+    BlockDismantler ..> GameManager : Sim.RemoveBlock()

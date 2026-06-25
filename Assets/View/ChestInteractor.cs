@@ -116,7 +116,7 @@ public class ChestInteractor : MonoBehaviour
             return;
         }
 
-        bool eKey = Input.GetKeyDown(KeyCode.E);
+        bool eKey = GameInput.InteractDown;
 
         if (_open)
         {

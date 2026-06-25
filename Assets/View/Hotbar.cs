@@ -95,8 +95,8 @@ public class Hotbar : MonoBehaviour
 
     private void Update()
     {
-        // Suppress gameplay input while any menu (pause or build) is open.
-        if (!MenuManager.IsOpen && !BuildMenu.IsMenuOpen)
+        // Hotbar selection/rotation is on-foot gameplay only (covers menus, panels, piloting).
+        if (GameInput.Context == InputContext.Gameplay)
         {
             HandleScrollInput();
             HandleNumberInput();
@@ -108,7 +108,7 @@ public class Hotbar : MonoBehaviour
 
     private void HandleScrollInput()
     {
-        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        float scroll = GameInput.Scroll;
         if (scroll == 0f || NoBlockActive) return;
 
         // Step size: 90° when hovering a construct block, 15° on terrain.
@@ -127,21 +127,17 @@ public class Hotbar : MonoBehaviour
 
     private void HandleNumberInput()
     {
-        for (int i = 0; i < _slots.Length; i++)
+        // Keys 1–9 map to slots 0–8; key 0 maps to slot 9 (Belt tool).
+        int i = GameInput.HotbarSlotDown;
+        if (i < 0 || i >= _slots.Length) return;
+
+        if (i == SelectedIndex && _slots[i] != null)
+            _deselected = !_deselected;     // same slot again: toggle cancel
+        else
         {
-            // Keys 1–9 map to slots 0–8; key 0 maps to slot 9 (Belt tool).
-            KeyCode key = i < 9 ? (KeyCode)((int)KeyCode.Alpha1 + i) : KeyCode.Alpha0;
-            if (Input.GetKeyDown(key))
-            {
-                if (i == SelectedIndex && _slots[i] != null)
-                    _deselected = !_deselected;     // same slot again: toggle cancel
-                else
-                {
-                    if (SelectedIndex != i) _rotationAngleY = 0f;
-                    SelectedIndex = i;
-                    _deselected   = false;           // switching slots always re-arms
-                }
-            }
+            if (SelectedIndex != i) _rotationAngleY = 0f;
+            SelectedIndex = i;
+            _deselected   = false;           // switching slots always re-arms
         }
     }
 

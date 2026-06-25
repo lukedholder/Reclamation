@@ -1,0 +1,69 @@
+classDiagram
+    class BlockDefinition {
+        +string Id
+        +string DisplayName
+        +BlockCategory Category
+        +FunctionalType FunctionalType
+        +int TierRequired
+        +int SizeX, SizeY, SizeZ
+        +int MaxDurability
+        +float Mass
+        +float PowerDrawKW
+        +float PowerOutputKW
+        +PowerInterface PowerInterface
+        +int MaxWireConnections
+        +float WireRangeUnits
+        +ItemStack[] ConstructionCost
+        +PortDefinition[] Ports
+        +IFunctionalParams Params
+    }
+    class Block {
+        +int Id
+        +BlockDefinition Definition
+        +int ConstructId
+        +int PowerNetworkId
+        +int LogisticsNetworkId
+        +GridPos GridPosition
+        +int RotationSteps
+        +bool IsOnTerrain
+        +int Durability
+        +MachineState MachineState
+        +GeneratorState GeneratorState
+        +BatteryState BatteryState
+    }
+    class Construct {
+        +int Id
+        +string Name
+        +ConstructType Type
+        +bool IsAnchored
+        +bool IsPilotable
+        +List~int~ BlockIds
+        +List~int~ PowerNetworkIds
+    }
+    class GridPos {
+        +int X, Y, Z
+    }
+    class BlockCategory {
+        <<enumeration>>
+        Structural / Production / Storage
+        Power / Logistics / FluidLogistics
+        Defense / Vehicle / Orbital
+    }
+    class FunctionalType {
+        <<enumeration>>
+        None / Foundation / Miner / Assembler
+        Furnace / Storage / Generator / Battery
+        Pole / Turret / Seat / Propulsion
+        Pump / Pipe / DockingPort / Fabricator
+    }
+    class ConstructType {
+        <<enumeration>>
+        Structure / Base / Outpost
+        Vehicle / Droid / OrbitalPlatform
+    }
+    BlockDefinition --> BlockCategory
+    BlockDefinition --> FunctionalType
+    Block --> BlockDefinition : type
+    Block --> GridPos : position
+    Block "*" --> "1" Construct : belongs to
+    Construct --> ConstructType

@@ -27,8 +27,9 @@ public class BlockPlacer : MonoBehaviour
 
     private void Update()
     {
+        if (GameInput.Context != InputContext.Gameplay) return;
         if (_hotbar.NoBlockActive) return;  // Wire tool or cancelled — no placement
-        if (Input.GetMouseButtonDown(0) && _raycaster.HasHit)
+        if (GameInput.PrimaryDown && _raycaster.HasHit)
             TryPlace();
     }
 
@@ -115,7 +116,7 @@ public class BlockPlacer : MonoBehaviour
         // Terrain blocks always use rot=0 within their construct.
         // The construct's Transform is rotated to carry the Y-orientation.
         var simConstruct = Sim.CreateConstruct();
-        block = Sim.PlaceBlock(def, simConstruct.Id, GridPos.Zero, 0);
+        block = Sim.PlaceBlock(def, simConstruct.Id, GridPos.Zero, 0, isOnTerrain: true);
 
         // Block centre in world space: snapped XZ (ore node or raw hit), half-height up.
         Vector3 blockWorldCenter = new Vector3(

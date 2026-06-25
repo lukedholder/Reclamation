@@ -24,6 +24,10 @@ public class Block
     // 0–3, each step is 90° around Y-axis.
     public int RotationSteps;
 
+    // True when this block was placed directly on terrain (not on another block).
+    // At least one terrain block in a construct keeps it anchored (no physics).
+    public bool IsOnTerrain;
+
     // --- Health ---
 
     public int Durability;

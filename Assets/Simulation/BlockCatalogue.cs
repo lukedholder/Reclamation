@@ -301,6 +301,45 @@ public static class BlockCatalogue
         },
     };
 
+    // --- V1 Vehicle Blocks ---
+
+    public static readonly BlockDefinition PilotSeat = new BlockDefinition
+    {
+        Id               = "pilot_seat",
+        DisplayName      = "Pilot Seat",
+        Category         = BlockCategory.Vehicle,
+        FunctionalType   = FunctionalType.Seat,
+        TierRequired     = 0,
+        SizeX            = 1, SizeY = 1, SizeZ = 1,
+        MaxDurability    = 150,
+        Mass             = 50f,
+        PowerDrawKW      = 0f,
+        PowerOutputKW    = 0f,
+        PowerInterface   = PowerInterface.None,
+        ConstructionCost = new[] { new ItemStack("iron_plate", 4), new ItemStack("circuit_board", 1) },
+        Params           = new SeatParams { Facing = FaceDir.PosZ },
+    };
+
+    public static readonly BlockDefinition Thruster = new BlockDefinition
+    {
+        Id               = "thruster",
+        DisplayName      = "Thruster",
+        Category         = BlockCategory.Vehicle,
+        FunctionalType   = FunctionalType.Propulsion,
+        TierRequired     = 0,
+        SizeX            = 1, SizeY = 1, SizeZ = 2,
+        MaxDurability    = 150,
+        Mass             = 80f,
+        // Basic prototype: thrust is not power-gated yet, so the thruster draws no
+        // power and stays off the grid. TODO (vehicle M4): make it a consumer
+        // (PowerInterface.Node + PowerDrawKW) and scale thrust by OperatingRate.
+        PowerDrawKW      = 0f,
+        PowerOutputKW    = 0f,
+        PowerInterface   = PowerInterface.None,
+        ConstructionCost = new[] { new ItemStack("iron_plate", 6), new ItemStack("iron_gear", 2) },
+        Params           = new ThrusterParams { ThrustKN = 8f, ExhaustDir = FaceDir.NegZ },
+    };
+
     // --- Catalogue enumeration (used by save / load) ---
 
     public static System.Collections.Generic.IReadOnlyList<BlockDefinition> All() => new[]
@@ -310,5 +349,6 @@ public static class BlockCatalogue
         BasicMiner, ElectricFurnace, AssemblerMk1,
         StorageChest,
         GunTurret,
+        PilotSeat, Thruster,
     };
 }

@@ -1,0 +1,16 @@
+stateDiagram-v2
+    [*] --> Idle : no recipe
+    Idle --> Waiting : recipe set, inputs missing
+    Waiting --> Operating : inputs present + power
+    Operating --> Waiting : inputs exhausted / output full
+    Operating --> NoPower : OperatingRate = 0
+    Waiting --> NoPower : OperatingRate = 0
+    NoPower --> Waiting : power restored
+    Operating --> Operating : CycleProgress += rate*dt;\non >=1 ConsumeInputs + ProduceOutputs
+    Operating --> Idle : recipe cleared
+    Waiting --> Idle : recipe cleared
+
+    note right of Waiting
+        Waiting draws 25% power (idle rate).
+        Operating draws 100%. Idle/NoPower draw 0.
+    end note

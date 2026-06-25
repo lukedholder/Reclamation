@@ -1,0 +1,18 @@
+flowchart TB
+    subgraph SIM["Simulation (planned)"]
+        C1["ConstructSystem.Reclassify(construct)"]
+        C1 --> C2{"hasSeat &amp;&amp; hasPropulsion<br/>&amp;&amp; !IsAnchored?"}
+        C2 -- yes --> C3["Type = Vehicle<br/>IsPilotable = true"]
+        C2 -- no --> C4["Base / Outpost / Structure"]
+        MU["Construct.ManualUnanchored flag<br/>overrides terrain anchoring"]
+    end
+
+    subgraph VIEW["View (planned)"]
+        D1["F on Seat -> enter pilot mode"]
+        D1 --> D2["disable PlayerController,<br/>set ManualUnanchored=true -> ApplyPhysics(),<br/>parent camera to seat"]
+        D2 --> D3["VehicleController.FixedUpdate:<br/>input -> sum thrusters x OperatingRate<br/>-> AddForce / AddTorque"]
+        D3 --> D4["F again -> exit, re-enable player"]
+    end
+
+    C3 -.-> D1
+    note1["Thruster = power consumer.<br/>Available thrust = ThrustKN x OperatingRate,<br/>so power deficit weakens the craft for free."]

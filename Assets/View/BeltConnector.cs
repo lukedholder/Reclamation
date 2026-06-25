@@ -85,11 +85,11 @@ public class BeltConnector : MonoBehaviour
 
     private void Update()
     {
-        if (MenuManager.IsOpen)  { ClearAll(); return; }
-        if (!_hotbar.IsBeltMode) { ClearAll(); return; }
+        if (GameInput.Context != InputContext.Gameplay) { ClearAll(); return; }
+        if (!_hotbar.IsBeltMode)                        { ClearAll(); return; }
 
         // Right-click cancels pending.
-        if (Input.GetMouseButtonDown(1)) { CancelPending(); return; }
+        if (GameInput.SecondaryDown) { CancelPending(); return; }
 
         // Keep pending cube on the selected port.
         if (_hasPending)
@@ -147,7 +147,7 @@ public class BeltConnector : MonoBehaviour
         }
 
         // Left-click.
-        if (!Input.GetMouseButtonDown(0)) return;
+        if (!GameInput.PrimaryDown) return;
 
         if (!_hasPending)
         {

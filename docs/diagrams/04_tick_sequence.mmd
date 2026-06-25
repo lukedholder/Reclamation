@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant U as Unity Update()
+    participant GM as GameManager
+    participant Sim as Simulation
+    participant P as PowerSystem
+    participant M as MachineSystem
+    participant L as LogisticsSystem
+    participant E as EnemySystem
+
+    U->>GM: Update() each frame
+    GM->>GM: _accumulator += deltaTime
+    loop while accumulator >= 1/20 s
+        GM->>Sim: Update()
+        Sim->>Sim: Tick++
+        Sim->>P: Tick(0.05s) — set OperatingRate on consumers
+        Sim->>M: Tick() — advance CycleProgress at throttled rate
+        Sim->>L: Tick(0.05s) — shift belt items, pull/deliver
+        Sim->>E: Tick(0.05s) — enemy AI (placeholder)
+        GM->>GM: accumulator -= 1/20 s
+    end
+    Note over GM,E: View MonoBehaviours read sim state in their own Update/LateUpdate

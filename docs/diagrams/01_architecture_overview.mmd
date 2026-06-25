@@ -1,0 +1,25 @@
+flowchart TB
+    subgraph SIM["Simulation layer — pure C#, no UnityEngine"]
+        direction TB
+        S1["Simulation<br/>(tick orchestrator)"]
+        S2["BlockTable / ConstructTable"]
+        S3["PowerSystem"]
+        S4["MachineSystem"]
+        S5["LogisticsSystem"]
+        S6["EnemySystem"]
+        S1 --> S2 & S3 & S4 & S5 & S6
+    end
+
+    subgraph VIEW["View layer — Unity MonoBehaviours"]
+        direction TB
+        V1["GameManager<br/>(owns Simulation, 20 Hz accumulator)"]
+        V2["ConstructView (parent + Rigidbody)"]
+        V3["BlockView (child + BoxCollider)"]
+        V4["BlockPlacer / BlockDismantler / Hotbar / BuildMenu"]
+        V5["UI: Inventory, Machine/Chest panels, Menus"]
+        V1 --> V2 --> V3
+        V1 --> V4 & V5
+    end
+
+    VIEW -- "calls methods (PlaceBlock, RemoveBlock, SetRecipe)" --> SIM
+    SIM -- "reads state each frame (never written by sim)" --> VIEW

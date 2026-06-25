@@ -57,8 +57,8 @@ public class SaveLoadManager : MonoBehaviour
     private void Update()
     {
         if (MenuManager.IsOpen) return;
-        if (Input.GetKeyDown(KeyCode.F5)) SaveGame();
-        if (Input.GetKeyDown(KeyCode.F9)) LoadGame();
+        if (GameInput.SaveDown) SaveGame();
+        if (GameInput.LoadDown) LoadGame();
     }
 
     // ── Serialisable data types ───────────────────────────────────────────────
@@ -76,6 +76,7 @@ public class SaveLoadManager : MonoBehaviour
     {
         public float posX, posY, posZ;
         public float rotY;                 // Y-axis Euler angle in degrees
+        public bool  manualUnanchored;     // released vehicle (flies even if on terrain)
         public List<BlockData> blocks = new List<BlockData>();
     }
 
@@ -86,6 +87,7 @@ public class SaveLoadManager : MonoBehaviour
         public int    gx, gy, gz;
         public int    rot;
         public string recipeId;            // empty for structural/power blocks and miners
+        public bool   isOnTerrain;
     }
 
     // Wires and belts store block references as (constructIndex, gridPos) so they
@@ -129,6 +131,7 @@ public class SaveLoadManager : MonoBehaviour
                 posY = cv.transform.position.y,
                 posZ = cv.transform.position.z,
                 rotY = cv.transform.eulerAngles.y,
+                manualUnanchored = cv.Construct != null && cv.Construct.ManualUnanchored,
             };
 
             foreach (Transform child in cv.transform)
@@ -139,12 +142,13 @@ public class SaveLoadManager : MonoBehaviour
                 var b = bv.Block;
                 cd.blocks.Add(new BlockData
                 {
-                    defId    = b.Definition.Id,
-                    gx       = b.GridPosition.X,
-                    gy       = b.GridPosition.Y,
-                    gz       = b.GridPosition.Z,
-                    rot      = b.RotationSteps,
-                    recipeId = b.MachineState?.ActiveRecipe?.Id ?? "",
+                    defId       = b.Definition.Id,
+                    gx          = b.GridPosition.X,
+                    gy          = b.GridPosition.Y,
+                    gz          = b.GridPosition.Z,
+                    rot         = b.RotationSteps,
+                    recipeId    = b.MachineState?.ActiveRecipe?.Id ?? "",
+                    isOnTerrain = b.IsOnTerrain,
                 });
 
                 blockRef[b.Id] = (ci, b.GridPosition.X, b.GridPosition.Y, b.GridPosition.Z);
@@ -212,6 +216,7 @@ public class SaveLoadManager : MonoBehaviour
             var cd = file.constructs[ci];
 
             var simConstruct = sim.CreateConstruct();
+            simConstruct.ManualUnanchored = cd.manualUnanchored;   // released vehicles stay free
             var cvGO = new GameObject();
             cvGO.transform.position = new Vector3(cd.posX, cd.posY, cd.posZ);
             cvGO.transform.rotation = Quaternion.Euler(0f, cd.rotY, 0f);
@@ -227,7 +232,8 @@ public class SaveLoadManager : MonoBehaviour
                 }
 
                 var block = sim.PlaceBlock(def, simConstruct.Id,
-                                           new GridPos(bd.gx, bd.gy, bd.gz), bd.rot);
+                                           new GridPos(bd.gx, bd.gy, bd.gz), bd.rot,
+                                           isOnTerrain: bd.isOnTerrain);
 
                 bool swap = (bd.rot & 1) == 1;
                 int sx = swap ? def.SizeZ : def.SizeX;
@@ -265,6 +271,8 @@ public class SaveLoadManager : MonoBehaviour
 
                 blockCount++;
             }
+
+            cv.ApplyPhysics();
         }
 
         // Restore wire connections.

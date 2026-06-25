@@ -18,4 +18,36 @@ public class ConstructView : MonoBehaviour
         Construct = construct;
         name      = $"Construct_{construct.Id}";
     }
+
+    // Adds or removes a Rigidbody depending on whether the construct is grounded.
+    // Grounded (IsAnchored) → static collider, no Rigidbody.
+    // Floating              → Rigidbody with gravity enabled, mass from block sum.
+    public void ApplyPhysics()
+    {
+        var rb = GetComponent<Rigidbody>();
+
+        if (Construct.IsAnchored)
+        {
+            if (rb != null) Destroy(rb);
+            return;
+        }
+
+        float totalMass = 0f;
+        var sim = GameManager.Instance?.Simulation;
+        if (sim != null)
+        {
+            foreach (int bid in Construct.BlockIds)
+                if (sim.Blocks.ById.TryGetValue(bid, out var b))
+                    totalMass += b.Definition.Mass;
+        }
+        if (totalMass <= 0f) totalMass = 1f;
+
+        if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
+        rb.mass                   = totalMass;
+        rb.isKinematic            = false;
+        rb.useGravity             = true;
+        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        rb.drag                   = 0.1f;
+        rb.angularDrag            = 0.5f;
+    }
 }

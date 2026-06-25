@@ -1,0 +1,53 @@
+classDiagram
+    class Simulation {
+        +int Tick
+        +BlockTable Blocks
+        +ConstructTable Constructs
+        +PowerSystem Power
+        +MachineSystem Machines
+        +LogisticsSystem Logistics
+        +EnemySystem Enemies
+        +Update()
+        +CreateConstruct() Construct
+        +PlaceBlock(def, constructId, gridPos, rot, isOnTerrain) Block
+        +RemoveBlock(blockId) List~int~
+        +RecalcAnchor(constructId)
+    }
+    class PowerSystem {
+        <<ticked 20 Hz>>
+        +Register(Block)
+        +Unregister(Block)
+        +ConnectBlocks(idA, idB)
+        +Tick(tickDelta, BlockTable)
+    }
+    class MachineSystem {
+        <<ticked 20 Hz>>
+        +const TickDelta = 0.05s
+        +Register(Block)
+        +Unregister(blockId)
+        +Get(blockId) BaseMachine
+        +Tick()
+    }
+    class LogisticsSystem {
+        <<ticked 20 Hz>>
+        +Connect(src, dst, len, throughput) BeltSegment
+        +DisconnectBlock(blockId)
+        +Tick(tickDelta, BlockTable)
+    }
+    class EnemySystem {
+        <<ticked 20 Hz>>
+        +Spawn(health, speed) Enemy
+        +Damage(enemyId, amount)
+        +Remove(enemyId)
+        +Tick(tickDelta)
+    }
+    class ConstructSystem {
+        <<PLANNED — for vehicles>>
+        +Reclassify(construct)
+    }
+    Simulation --> PowerSystem : ticks 1st
+    Simulation --> MachineSystem : ticks 2nd
+    Simulation --> LogisticsSystem : ticks 3rd
+    Simulation --> EnemySystem : ticks 4th
+    Simulation ..> ConstructSystem : planned
+    note for Simulation "Connectivity (merge/split) is event-driven inside\nPlaceBlock / RemoveBlock — not a ticked system."

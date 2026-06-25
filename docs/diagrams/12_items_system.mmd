@@ -1,0 +1,48 @@
+classDiagram
+    class ItemDefinition {
+        +string Id
+        +string DisplayName
+        +int MaxStackSize
+        +ItemCategory Category
+    }
+    class ItemStack {
+        +string ItemId
+        +int Quantity
+        +bool IsEmpty
+    }
+    class ItemBuffer {
+        +int MaxSlots
+        +List~ItemStack~ Slots
+        +ConfigureSlot(i, itemId)
+        +Add(id, qty) int
+        +TryRemove(id, qty) bool
+        +CountOf(id) int
+    }
+    class ItemCatalogue {
+        <<static>>
+        +Get(id) ItemDefinition
+        +All() IReadOnlyList
+    }
+    class PlayerInventory {
+        <<MonoBehaviour>>
+        +TryAddItem(id, qty) int
+        +TryRemoveItem(id, qty) int
+        +SetGear(slot, item)
+        +ShowStandalone() / ShowForMachine()
+    }
+    class DragDropController {
+        <<MonoBehaviour singleton>>
+        +HandleClick(widget, take, place)
+        +CancelDrag()
+    }
+    class ItemSlotWidget {
+        +Refresh(ItemStack)
+        +OnSlotDoubleClicked
+    }
+    ItemCatalogue "1" *-- "*" ItemDefinition
+    ItemBuffer "1" *-- "*" ItemStack
+    PlayerInventory --> ItemStack : slots + gear
+    PlayerInventory --> ItemSlotWidget : grid
+    ItemSlotWidget --> DragDropController : click
+    MachineInteractor --> ItemBuffer : machine buffers
+    ChestInteractor --> StorageChestMachine : contents

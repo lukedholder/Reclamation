@@ -1,0 +1,48 @@
+classDiagram
+    class BaseMachine {
+        <<abstract>>
+        #Block _block
+        #MachineState State
+        +SetRecipe(Recipe) bool
+        +Tick(tickDelta)
+        #HasInputsForOneCycle() bool
+        #HasOutputSpace() bool
+        #ConsumeInputs()
+        #ProduceOutputs()
+    }
+    class MinerMachine {
+        +SetResourceNode(itemId, cycleTime, amount)
+    }
+    class AssemblerMachine
+    class FurnaceMachine
+    class StorageChestMachine {
+        +TotalStored / TotalCapacity
+        +GiveToStorage(id, qty) int
+        +TakeFromStorage(id, qty) ItemStack
+    }
+    class TurretMachine {
+        +const AmmoId = turret_round
+        +bool CanFire
+        +TryFire() bool
+    }
+    class MachineState {
+        +OperationMode Mode
+        +Recipe ActiveRecipe
+        +float CycleProgress
+        +float OperatingRate
+        +ItemBuffer InputBuffer
+        +ItemBuffer OutputBuffer
+    }
+    class MachineSystem {
+        +const TickDelta = 0.05s
+        +Register(Block) / Unregister(id)
+        +Get(id) / Get~T~(id)
+        +Tick()
+    }
+    BaseMachine <|-- MinerMachine
+    BaseMachine <|-- AssemblerMachine
+    BaseMachine <|-- FurnaceMachine
+    BaseMachine <|-- StorageChestMachine
+    BaseMachine <|-- TurretMachine
+    MachineSystem "1" *-- "*" BaseMachine : owns
+    BaseMachine --> MachineState : reads/writes Block.MachineState

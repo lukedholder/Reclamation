@@ -23,9 +23,10 @@ public class BlockDismantler : MonoBehaviour
 
     private void Update()
     {
+        if (GameInput.Context != InputContext.Gameplay) return;
         // Wire/Belt tools own right-click while active.
         if (_hotbar.IsToolMode) return;
-        if (Input.GetMouseButtonDown(1) && _raycaster.HasHit)
+        if (GameInput.SecondaryDown && _raycaster.HasHit)
             TryDismantle();
     }
 
@@ -50,6 +51,9 @@ public class BlockDismantler : MonoBehaviour
 
         if (splitIds.Count > 0)
             HandleSplit(constructView, splitIds);
+
+        // Re-evaluate physics: the removed block may have been the only terrain contact.
+        constructView?.ApplyPhysics();
     }
 
     // When a removal severs a construct into pieces, the sim creates new construct IDs
@@ -59,12 +63,14 @@ public class BlockDismantler : MonoBehaviour
     // values are relative to that origin and are never changed by a split.
     private void HandleSplit(ConstructView originalCV, System.Collections.Generic.List<int> splitIds)
     {
-        Vector3 origin = originalCV.transform.position;
+        Vector3    origin = originalCV.transform.position;
+        Quaternion rot    = originalCV.transform.rotation;
 
         foreach (int newId in splitIds)
         {
             var cvGO = new GameObject();
             cvGO.transform.position = origin;
+            cvGO.transform.rotation = rot;
             var newCV = cvGO.AddComponent<ConstructView>();
             newCV.Init(Sim.Constructs.ById[newId]);
 
@@ -79,6 +85,8 @@ public class BlockDismantler : MonoBehaviour
 
             foreach (var t in toReparent)
                 t.SetParent(newCV.transform, worldPositionStays: true);
+
+            newCV.ApplyPhysics();
         }
     }
 }

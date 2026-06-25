@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> Empty : nothing held
+    Empty --> Holding : click slot -> take() returns stack + show ghost
+    Holding --> Empty : click slot -> place() leftover.IsEmpty (fully placed)
+    Holding --> Holding : click slot -> partial place / swap (update ghost)
+    Holding --> Empty : right-click -> cancel -> return to source
+    Holding --> Empty : ESC -> MenuManager closes panel -> CancelDrag()
+    note right of Holding
+        place() returns leftover:
+        IsEmpty  -> fully placed
+        == held  -> fully rejected
+        else     -> partial / swap
+    end note

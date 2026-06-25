@@ -26,7 +26,21 @@
       "Bash(Get-ChildItem -Path \"C:\\\\dev\\\\Reclamation\\\\Assets\" -Recurse -Filter \"*.cs\")",
       "Bash(Select-Object FullName)",
       "Bash(Sort-Object FullName)",
-      "Bash(xargs grep -l \"procedural\\\\|terrain\\\\|generation\\\\|WorldGen\\\\|ProceduralGen\" -i)"
+      "Bash(xargs grep -l \"procedural\\\\|terrain\\\\|generation\\\\|WorldGen\\\\|ProceduralGen\" -i)",
+      "Bash(npm --version)",
+      "Bash(mmdc --version)",
+      "Bash(java -version)",
+      "Bash(dot -V)",
+      "Bash(pdflatex --version)",
+      "Bash(xelatex --version)",
+      "Bash(wkhtmltopdf --version)",
+      "Bash(soffice --version)",
+      "Bash(command -v pandoc)",
+      "Bash(kpsewhich tikz-uml.sty)",
+      "Bash(kpsewhich tikz.sty)",
+      "Bash(kpsewhich standalone.cls)",
+      "Bash(curl -sS -m 8 -o /dev/null -w \"%{http_code}\" https://registry.npmjs.org/)",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }

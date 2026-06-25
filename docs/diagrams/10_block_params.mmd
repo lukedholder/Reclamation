@@ -1,0 +1,54 @@
+classDiagram
+    class IFunctionalParams {
+        <<interface>>
+    }
+    class MinerParams {
+        +float ExtractRatePerSecond
+        +string[] ResourceTypes
+        +FaceDir OutputFace
+    }
+    class GeneratorParams {
+        +float OutputKW
+        +float FuelConsumptionRate
+        +FaceDir FuelInputFace
+    }
+    class AssemblerParams {
+        +float SpeedMultiplier
+        +string[] AllowedRecipeCategories
+    }
+    class PoleParams {
+        +float WireRangeUnits
+        +int MaxConnections
+    }
+    class BatteryParams {
+        +float CapacityKJ
+        +float MaxChargeRateKW
+        +float MaxDischargeRateKW
+    }
+    class TurretParams {
+        +float Range
+        +float ShotsPerSecond
+        +float DamagePerShot
+    }
+    class DockingPortParams {
+        +DockingPortType PortType
+    }
+    class ThrusterParams {
+        <<PLANNED>>
+        +float ThrustKN
+        +FaceDir ExhaustDir
+    }
+    class SeatParams {
+        <<PLANNED>>
+        +FaceDir Facing
+    }
+    IFunctionalParams <|-- MinerParams
+    IFunctionalParams <|-- GeneratorParams
+    IFunctionalParams <|-- AssemblerParams
+    IFunctionalParams <|-- PoleParams
+    IFunctionalParams <|-- BatteryParams
+    IFunctionalParams <|-- TurretParams
+    IFunctionalParams <|-- DockingPortParams
+    IFunctionalParams <|-- ThrusterParams
+    IFunctionalParams <|-- SeatParams
+    BlockDefinition --> IFunctionalParams

@@ -1,0 +1,46 @@
+classDiagram
+    class PowerSystem {
+        +Networks : IReadOnlyDictionary
+        +WireConnections : IReadOnlyCollection
+        +Register(Block)
+        +Unregister(Block)
+        +ConnectBlocks(idA, idB) bool
+        +DisconnectBlocks(idA, idB) bool
+        +Tick(tickDelta, BlockTable)
+        -TickNetwork(net, dt, blocks)
+        -ChargeBatteries(net, surplusKW, dt)
+        -DischargeBatteries(net, deficitKW, dt) float
+        -SetOperatingRates(net, rate)
+    }
+    class PowerNetwork {
+        +int Id
+        +List~int~ GeneratorIds
+        +List~int~ BatteryIds
+        +List~int~ ConsumerIds
+        +List~int~ PoleIds
+        +float TotalSupplyKW
+        +float TotalDemandKW
+        +PowerState State
+    }
+    class GeneratorState {
+        +float CurrentOutputKW
+        +bool IsRunning
+        +float FuelRemaining
+    }
+    class BatteryState {
+        +float StoredKJ
+        +float CapacityKJ
+        +float MaxChargeRateKW
+        +float MaxDischargeRateKW
+        +float ChargePercent
+    }
+    class PowerState {
+        <<enumeration>>
+        Nominal / BatteryAssist
+        Deficit / Dead
+    }
+    PowerSystem "1" *-- "*" PowerNetwork
+    PowerNetwork --> PowerState
+    PowerNetwork "1" --> "*" GeneratorState : running gens
+    PowerNetwork "1" --> "*" BatteryState : buffers
+    note for PowerSystem "Balance per tick: surplus charges batteries;\ndeficit discharges then throttles consumers\nvia MachineState.OperatingRate (0..1)."

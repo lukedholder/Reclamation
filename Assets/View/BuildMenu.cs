@@ -59,6 +59,7 @@ public class BuildMenu : MonoBehaviour
         BlockCategory.Production => new Color(0.10f, 0.22f, 0.10f),
         BlockCategory.Storage    => new Color(0.20f, 0.16f, 0.10f),
         BlockCategory.Defense    => new Color(0.26f, 0.09f, 0.09f),
+        BlockCategory.Vehicle    => new Color(0.12f, 0.18f, 0.24f),
         _                        => new Color(0.16f, 0.16f, 0.18f),
     };
 
@@ -116,8 +117,11 @@ public class BuildMenu : MonoBehaviour
         // Don't interact with the pause / settings menu layer.
         if (MenuManager.IsOpen) return;
 
+        // While piloting a vehicle, Q is the roll control — don't open the build menu.
+        if (VehiclePilot.IsPiloting) return;
+
         // Q toggles the menu.
-        if (Input.GetKeyDown(KeyCode.Q))
+        if (GameInput.BuildMenuDown)
         {
             if (_open) CloseMenu();
             else       OpenMenu();
@@ -126,16 +130,12 @@ public class BuildMenu : MonoBehaviour
 
         if (!_open) return;
 
-        // Hover + number key → assign to that hotbar slot.
+        // Hover + number key (1–8) → assign to that hotbar slot.
         if (_hoveredDef != null)
         {
-            for (int i = 0; i < 8; i++)
-            {
-                KeyCode key = (KeyCode)((int)KeyCode.Alpha1 + i);
-                if (!Input.GetKeyDown(key)) continue;
-                AssignAndFlash(_hoveredDef, i);
-                break;
-            }
+            int slot = GameInput.HotbarSlotDown;
+            if (slot >= 0 && slot < 8)
+                AssignAndFlash(_hoveredDef, slot);
         }
 
         // Decay the assignment flash overlay.
@@ -406,6 +406,7 @@ public class BuildMenu : MonoBehaviour
             ("Production", BlockCategory.Production),
             ("Storage",    BlockCategory.Storage),
             ("Defense",    BlockCategory.Defense),
+            ("Vehicle",    BlockCategory.Vehicle),
         };
 
         float catY = PadV;

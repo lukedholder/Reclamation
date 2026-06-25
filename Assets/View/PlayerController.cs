@@ -43,18 +43,30 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        // Only walk / look during on-foot gameplay (not in menus, panels, or while piloting).
+        if (GameInput.Context != InputContext.Gameplay) return;
         HandleLook();
         HandleMove();
+    }
+
+    // Re-seeds the internal yaw/pitch from the current transforms so look control
+    // resumes smoothly after an external system (e.g. VehiclePilot) repositioned
+    // the player. Without this, HandleLook would snap back to the old angles.
+    public void SyncLookFromTransform()
+    {
+        _yaw = transform.eulerAngles.y;
+        _pitch = _cameraTransform != null ? _cameraTransform.localEulerAngles.x : 0f;
+        if (_pitch > 180f) _pitch -= 360f;
+        _pitch = Mathf.Clamp(_pitch, -85f, 85f);
     }
 
     // ── Look ──────────────────────────────────────────────────────────────────
 
     private void HandleLook()
     {
-        if (Cursor.lockState != CursorLockMode.Locked) return;
-
-        _yaw   += Input.GetAxis("Mouse X") * _lookSensitivity;
-        _pitch -= Input.GetAxis("Mouse Y") * _lookSensitivity;
+        Vector2 look = GameInput.Look;
+        _yaw   += look.x * _lookSensitivity;
+        _pitch -= look.y * _lookSensitivity;
         _pitch  = Mathf.Clamp(_pitch, -85f, 85f);
 
         // Yaw rotates the whole body so the forward vector stays correct for movement.
@@ -67,15 +79,16 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMove()
     {
-        var move = transform.forward * Input.GetAxisRaw("Vertical")
-                 + transform.right   * Input.GetAxisRaw("Horizontal");
+        Vector2 m = GameInput.Move;
+        var move = transform.forward * m.y
+                 + transform.right   * m.x;
 
         if (move.sqrMagnitude > 1f) move.Normalize();
 
         if (_cc.isGrounded)
         {
             _velocityY = -1f; // small constant keeps isGrounded reliable next frame
-            if (Input.GetButtonDown("Jump")) _velocityY = _jumpSpeed;
+            if (GameInput.JumpDown) _velocityY = _jumpSpeed;
         }
         else
         {

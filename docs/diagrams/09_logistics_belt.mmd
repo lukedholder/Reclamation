@@ -1,0 +1,24 @@
+classDiagram
+    class LogisticsSystem {
+        +Count : int
+        +Belts : IReadOnlyDictionary
+        +Connect(srcId, srcPort, dstId, dstPort, lenCells, throughput) BeltSegment
+        +Disconnect(beltId)
+        +DisconnectBlock(blockId)
+        +Tick(tickDelta, BlockTable)
+    }
+    class BeltSegment {
+        +int Id
+        +int SourceBlockId / SourcePortIndex
+        +int DestBlockId / DestPortIndex
+        +float ThroughputPerMin
+        +int LengthInCells
+        +string[] Slots
+        +float StepProgress
+        +Tick(tickDelta, BlockTable)
+        -Step(BlockTable)
+        -TryDeliver(BlockTable, item) bool
+        -TryPull(BlockTable)
+    }
+    LogisticsSystem "1" *-- "*" BeltSegment
+    note for BeltSegment "Shift register: Slots[0]=entry, Slots[n-1]=exit.\nStep order: deliver exit -> shift toward exit -> pull source.\nStepProgress += throughput/60 * dt; step fires on crossing 1.0."

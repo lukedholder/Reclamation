@@ -59,7 +59,7 @@ public class DragDropController : MonoBehaviour
         // Ghost follows the cursor in canvas-local space.
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 UIRoot.Canvas.GetComponent<RectTransform>(),
-                Input.mousePosition,
+                GameInput.MousePosition,
                 null,   // Screen Space Overlay — no camera
                 out var localPos))
         {
@@ -67,7 +67,7 @@ public class DragDropController : MonoBehaviour
         }
 
         // Right-click cancels drag.
-        if (Input.GetMouseButtonDown(1))
+        if (GameInput.SecondaryDown)
             CancelDrag();
     }
 

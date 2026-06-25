@@ -1,0 +1,15 @@
+% Styling + image-fit defaults for the Design Bible PDF build.
+\usepackage{float}
+\usepackage{xcolor}
+\definecolor{rcaccent}{HTML}{2E5E8C}
+\definecolor{rclight}{HTML}{EEF3F8}
+
+% Keep every embedded diagram within the text block (width AND height).
+\setkeys{Gin}{width=\linewidth,height=0.84\textheight,keepaspectratio}
+
+% Section heading colour
+\usepackage{sectsty}
+\allsectionsfont{\color{rcaccent}}
+
+% Tighter, cleaner tables
+\renewcommand{\arraystretch}{1.15}

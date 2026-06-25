@@ -1,0 +1,42 @@
+classDiagram
+    class TurretMachine {
+        +const AmmoId = turret_round
+        +float Range / Damage
+        +bool CanFire
+        +TryFire() bool
+        +Tick(dt) : cooldown + Mode
+    }
+    class TurretView {
+        <<MonoBehaviour>>
+        +Init(Block, TurretMachine)
+        +Update() : aim nearest, fire, muzzle flash
+    }
+    class Enemy {
+        +int Id
+        +float MaxHealth / Health
+        +float Speed
+        +float WorldX / WorldZ
+        +bool IsDead
+        +TakeDamage(amount)
+    }
+    class EnemySystem {
+        +Spawn(health, speed) Enemy
+        +Damage(enemyId, amount)
+        +Remove(enemyId)
+        +All : IReadOnlyList
+    }
+    class EnemyView {
+        <<MonoBehaviour>>
+        +Init(Enemy)
+        +Update() : move, write WorldX/Z, death anim
+    }
+    class EnemySpawner {
+        <<MonoBehaviour>>
+        +SpawnWave()
+    }
+    EnemySystem "1" *-- "*" Enemy
+    EnemyView --> Enemy : writes world pos each frame
+    EnemySpawner --> EnemyView : spawns
+    TurretView --> TurretMachine : polls TryFire()
+    TurretView ..> EnemySystem : reads All, calls Damage()
+    note for TurretView "Turret aims using Enemy.WorldX/Z (written by EnemyView),\nso no FindObjectsOfType needed."

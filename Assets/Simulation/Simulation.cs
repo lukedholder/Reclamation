@@ -14,12 +14,13 @@ public class Simulation
 {
     public int Tick { get; private set; }
 
-    public readonly BlockTable      Blocks     = new BlockTable();
-    public readonly ConstructTable  Constructs = new ConstructTable();
-    public readonly PowerSystem     Power      = new PowerSystem();
-    public readonly MachineSystem   Machines   = new MachineSystem();
-    public readonly LogisticsSystem Logistics  = new LogisticsSystem();
-    public readonly EnemySystem     Enemies    = new EnemySystem();
+    public readonly BlockTable      Blocks         = new BlockTable();
+    public readonly ConstructTable  Constructs     = new ConstructTable();
+    public readonly PowerSystem     Power          = new PowerSystem();
+    public readonly MachineSystem   Machines       = new MachineSystem();
+    public readonly LogisticsSystem Logistics      = new LogisticsSystem();
+    public readonly EnemySystem     Enemies        = new EnemySystem();
+    public readonly ConstructSystem ConstructTypes = new ConstructSystem();
 
     private int _nextBlockId     = 1;
     private int _nextConstructId = 1;
@@ -31,6 +32,7 @@ public class Simulation
         Machines.Tick();                                    // 2. advance production at throttled rate
         Logistics.Tick(MachineSystem.TickDelta, Blocks);   // 3. move items between machines
         Enemies.Tick(MachineSystem.TickDelta);             // 4. enemy AI tick (placeholder)
+        ConstructTypes.Tick(Constructs, Blocks);           // 5. classify constructs (vehicle / base / structure)
     }
 
     // Creates an empty construct and registers it. Called before placing the first block.
@@ -45,16 +47,18 @@ public class Simulation
     // GridPos is the block's minimum corner (bottom-left-back) in the construct's local grid.
     // Merges any other constructs the new block touches into the target construct.
     // Returns the placed Block.
-    public Block PlaceBlock(BlockDefinition definition, int constructId, GridPos gridPos, int rotSteps = 0)
+    public Block PlaceBlock(BlockDefinition definition, int constructId, GridPos gridPos,
+                            int rotSteps = 0, bool isOnTerrain = false)
     {
         var block = new Block
         {
-            Id           = _nextBlockId++,
-            Definition   = definition,
-            ConstructId  = constructId,
-            GridPosition = gridPos,
+            Id            = _nextBlockId++,
+            Definition    = definition,
+            ConstructId   = constructId,
+            GridPosition  = gridPos,
             RotationSteps = rotSteps,
-            Durability   = definition.MaxDurability,
+            Durability    = definition.MaxDurability,
+            IsOnTerrain   = isOnTerrain,
         };
 
         Blocks.ById[block.Id] = block;
@@ -64,6 +68,8 @@ public class Simulation
 
         var construct = Constructs.ById[constructId];
         construct.BlockIds.Add(block.Id);
+
+        RecalcAnchor(constructId);
 
         // Construct merging is deferred to the docking system.
         // AreAdjacent compares GridPos values, which are construct-local — calling it
@@ -148,7 +154,38 @@ public class Simulation
             }
         }
 
+        // Recalculate which constructs still touch terrain after the removal/split.
+        RecalcAnchor(constructId);
+        foreach (int id in newConstructIds)
+            RecalcAnchor(id);
+
         return newConstructIds;
+    }
+
+    // Recalculates Construct.IsAnchored by scanning whether any member block is on terrain.
+    // Call after any block removal or split.
+    public void RecalcAnchor(int constructId)
+    {
+        if (!Constructs.ById.TryGetValue(constructId, out var construct)) return;
+
+        // A manually-released construct (a flying vehicle) is never anchored,
+        // regardless of any remaining terrain-touching blocks.
+        if (construct.ManualUnanchored)
+        {
+            construct.IsAnchored = false;
+            return;
+        }
+
+        bool anchored = false;
+        foreach (int bid in construct.BlockIds)
+        {
+            if (Blocks.ById.TryGetValue(bid, out var b) && b.IsOnTerrain)
+            {
+                anchored = true;
+                break;
+            }
+        }
+        construct.IsAnchored = anchored;
     }
 
     // Two blocks (minimum-corner GridPos, integer sizes) are face-adjacent when

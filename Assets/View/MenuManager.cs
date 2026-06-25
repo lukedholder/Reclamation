@@ -68,7 +68,7 @@ public class MenuManager : MonoBehaviour
 
     private void Update()
     {
-        if (!Input.GetKeyDown(KeyCode.Escape)) return;
+        if (!GameInput.PauseDown) return;
 
         // Priority 1a: build menu open → close it.
         if (_buildMenu != null && _buildMenu.IsOpen)

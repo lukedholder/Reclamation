@@ -71,8 +71,8 @@ public class WireConnector : MonoBehaviour
 
     private void Update()
     {
-        if (MenuManager.IsOpen)  { ClearAll(); return; }
-        if (!_hotbar.IsWireMode) { ClearAll(); return; }
+        if (GameInput.Context != InputContext.Gameplay) { ClearAll(); return; }
+        if (!_hotbar.IsWireMode)                        { ClearAll(); return; }
 
         BlockView hovered = HoveredPowerBlock();
         UpdateHoverBox(hovered);
@@ -137,9 +137,9 @@ public class WireConnector : MonoBehaviour
     private void HandleInput(BlockView hovered)
     {
         // Right-click always cancels the pending connection.
-        if (Input.GetMouseButtonDown(1)) { ClearSelection(); return; }
+        if (GameInput.SecondaryDown) { ClearSelection(); return; }
 
-        if (!Input.GetMouseButtonDown(0) || hovered == null) return;
+        if (!GameInput.PrimaryDown || hovered == null) return;
 
         if (_pendingId < 0)
         {

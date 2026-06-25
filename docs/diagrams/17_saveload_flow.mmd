@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph SAVE["Save (F5)"]
+        SA["walk ConstructViews"] --> SB["per construct: pos, rotY"]
+        SB --> SC["per block: defId, gridPos, rot, recipeId, isOnTerrain"]
+        SC --> SD["wires: (constructIndex, gridPos) pairs"]
+        SD --> SE["belts: src/dst (constructIndex, gridPos), len, throughput"]
+        SE --> SF["JSON -> persistentDataPath/save.json"]
+    end
+
+    subgraph LOAD["Load (F9 / auto on Start)"]
+        LA["destroy existing ConstructViews"] --> LB["ResetSimulation()"]
+        LB --> LC["recreate constructs + blocks<br/>(PlaceBlock with isOnTerrain)"]
+        LC --> LD["rebind miners, restore recipes,<br/>add TurretViews"]
+        LD --> LE["ConstructView.ApplyPhysics() per construct"]
+        LE --> LF["restore wires + belts by (constructIndex, gridPos)"]
+    end
+
+    SF -.-> LA
+    note1["Block IDs are reassigned on load,<br/>so wires/belts reference blocks by<br/>stable (constructIndex, gridPos) keys."]
