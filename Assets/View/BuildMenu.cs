@@ -195,9 +195,9 @@ public class BuildMenu : MonoBehaviour
             if (bg != null) Object.Destroy(bg.gameObject);
         _entries.Clear();
 
-        // Filter blocks by selected category.
+        // Filter blocks by selected category (code blocks + designer-authored blocks).
         var visible = new List<BlockDefinition>();
-        foreach (var def in BlockCatalogue.All())
+        foreach (var def in BlockRegistry.All())
             if (_filterCategory == null || def.Category == _filterCategory)
                 visible.Add(def);
 

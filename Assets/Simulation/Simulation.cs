@@ -47,9 +47,14 @@ public class Simulation
     // GridPos is the block's minimum corner (bottom-left-back) in the construct's local grid.
     // Merges any other constructs the new block touches into the target construct.
     // Returns the placed Block.
+    // Returns the placed Block, or null if the construct doesn't exist or the target
+    // cells are already occupied (overlap rejected via the occupancy map).
     public Block PlaceBlock(BlockDefinition definition, int constructId, GridPos gridPos,
                             int rotSteps = 0, bool isOnTerrain = false)
     {
+        if (!Constructs.ById.TryGetValue(constructId, out var construct)) return null;
+        if (!AreCellsFree(construct, definition, gridPos, rotSteps))      return null;
+
         var block = new Block
         {
             Id            = _nextBlockId++,
@@ -66,18 +71,21 @@ public class Simulation
         Power.Register(block);
         Machines.Register(block);
 
-        var construct = Constructs.ById[constructId];
         construct.BlockIds.Add(block.Id);
+        RegisterCells(construct, block);
 
         RecalcAnchor(constructId);
 
-        // Construct merging is deferred to the docking system.
-        // AreAdjacent compares GridPos values, which are construct-local — calling it
-        // across constructs would compare unrelated coordinate spaces and trigger false
-        // merges.  MergeInto remains available for the docking implementation.
+        // Construct merging is deferred to the docking system — MergeInto remains
+        // available for the docking implementation.
 
         return block;
     }
+
+    // True if the target footprint is unoccupied — exposed so the view can validate
+    // a ghost before committing a placement.
+    public bool CanPlace(int constructId, BlockDefinition def, GridPos gridPos, int rotSteps = 0)
+        => Constructs.ById.TryGetValue(constructId, out var c) && AreCellsFree(c, def, gridPos, rotSteps);
 
     // Removes a block. Returns IDs of any new constructs created by a split
     // (empty if the construct was destroyed or remained connected).
@@ -96,6 +104,7 @@ public class Simulation
         Blocks.ById.Remove(blockId);
         RemoveFromConstructIndex(blockId, constructId);
         construct.BlockIds.Remove(blockId);
+        UnregisterCells(construct, block);
 
         if (construct.BlockIds.Count == 0)
         {
@@ -103,7 +112,8 @@ public class Simulation
             return newConstructIds;
         }
 
-        // Flood-fill to find connected components
+        // Flood-fill to find connected components, using the occupancy map for O(1)
+        // neighbour lookups (O(total cells) overall instead of O(blocks²)).
         var remaining  = new HashSet<int>(construct.BlockIds);
         var components = new List<HashSet<int>>();
 
@@ -119,24 +129,16 @@ public class Simulation
 
             while (queue.Count > 0)
             {
-                int cur      = queue.Dequeue();
-                var curBlock = Blocks.ById[cur];
+                int cur = queue.Dequeue();
                 component.Add(cur);
-
-                foreach (var other in Blocks.ById.Values)
-                {
-                    if (!remaining.Contains(other.Id)) continue;
-                    if (!AreAdjacent(curBlock, other)) continue;
-                    remaining.Remove(other.Id);
-                    queue.Enqueue(other.Id);
-                }
+                EnqueueAdjacentBlocks(construct, Blocks.ById[cur], cur, remaining, queue);
             }
 
             components.Add(component);
         }
 
         // First component keeps the original construct.
-        // Each additional component becomes a new construct.
+        // Each additional component becomes a new construct, taking its cells with it.
         for (int i = 1; i < components.Count; i++)
         {
             var split = CreateConstruct();
@@ -145,12 +147,14 @@ public class Simulation
             foreach (var bid in components[i])
             {
                 var b = Blocks.ById[bid];
+                UnregisterCells(construct, b);
                 RemoveFromConstructIndex(bid, constructId);
                 construct.BlockIds.Remove(bid);
 
                 b.ConstructId = split.Id;
                 split.BlockIds.Add(bid);
                 IndexBlockToConstruct(bid, split.Id);
+                RegisterCells(split, b);
             }
         }
 
@@ -188,26 +192,72 @@ public class Simulation
         construct.IsAnchored = anchored;
     }
 
-    // Two blocks (minimum-corner GridPos, integer sizes) are face-adjacent when
-    // they share exactly one face: touching on one axis, overlapping on the other two.
-    private static bool AreAdjacent(Block a, Block b)
+    // ── Occupancy map ──────────────────────────────────────────────────────────
+
+    // Footprint dimensions after the X/Z swap that an odd rotation step applies.
+    private static void GetFootprint(BlockDefinition def, int rotSteps, out int sx, out int sy, out int sz)
     {
-        GridPos ap = a.GridPosition;
-        GridPos bp = b.GridPosition;
-        int asx = a.Definition.SizeX, asy = a.Definition.SizeY, asz = a.Definition.SizeZ;
-        int bsx = b.Definition.SizeX, bsy = b.Definition.SizeY, bsz = b.Definition.SizeZ;
+        bool swap = (rotSteps & 1) == 1;
+        sx = swap ? def.SizeZ : def.SizeX;
+        sy = def.SizeY;
+        sz = swap ? def.SizeX : def.SizeZ;
+    }
 
-        bool touchX = ap.X + asx == bp.X || bp.X + bsx == ap.X;
-        bool touchY = ap.Y + asy == bp.Y || bp.Y + bsy == ap.Y;
-        bool touchZ = ap.Z + asz == bp.Z || bp.Z + bsz == ap.Z;
+    // True if every cell the block would occupy is currently empty in this construct.
+    private static bool AreCellsFree(Construct c, BlockDefinition def, GridPos g, int rotSteps)
+    {
+        GetFootprint(def, rotSteps, out int sx, out int sy, out int sz);
+        for (int x = 0; x < sx; x++)
+        for (int y = 0; y < sy; y++)
+        for (int z = 0; z < sz; z++)
+            if (c.Cells.ContainsKey(new GridPos(g.X + x, g.Y + y, g.Z + z)))
+                return false;
+        return true;
+    }
 
-        bool overlapX = ap.X < bp.X + bsx && bp.X < ap.X + asx;
-        bool overlapY = ap.Y < bp.Y + bsy && bp.Y < ap.Y + asy;
-        bool overlapZ = ap.Z < bp.Z + bsz && bp.Z < ap.Z + asz;
+    private static void RegisterCells(Construct c, Block b)
+    {
+        GetFootprint(b.Definition, b.RotationSteps, out int sx, out int sy, out int sz);
+        var g = b.GridPosition;
+        for (int x = 0; x < sx; x++)
+        for (int y = 0; y < sy; y++)
+        for (int z = 0; z < sz; z++)
+            c.Cells[new GridPos(g.X + x, g.Y + y, g.Z + z)] = b.Id;
+    }
 
-        return (touchX && overlapY && overlapZ)
-            || (touchY && overlapX && overlapZ)
-            || (touchZ && overlapX && overlapY);
+    private static void UnregisterCells(Construct c, Block b)
+    {
+        GetFootprint(b.Definition, b.RotationSteps, out int sx, out int sy, out int sz);
+        var g = b.GridPosition;
+        for (int x = 0; x < sx; x++)
+        for (int y = 0; y < sy; y++)
+        for (int z = 0; z < sz; z++)
+        {
+            var cell = new GridPos(g.X + x, g.Y + y, g.Z + z);
+            if (c.Cells.TryGetValue(cell, out int id) && id == b.Id)
+                c.Cells.Remove(cell);
+        }
+    }
+
+    // Enqueues every not-yet-visited block face-adjacent to `block`, found via the
+    // occupancy map: scan the block's cells, probe the six neighbours of each.
+    private static void EnqueueAdjacentBlocks(Construct c, Block block, int blockId,
+                                              HashSet<int> remaining, Queue<int> queue)
+    {
+        GetFootprint(block.Definition, block.RotationSteps, out int sx, out int sy, out int sz);
+        var g = block.GridPosition;
+        for (int x = 0; x < sx; x++)
+        for (int y = 0; y < sy; y++)
+        for (int z = 0; z < sz; z++)
+        {
+            var cell = new GridPos(g.X + x, g.Y + y, g.Z + z);
+            foreach (var n in GridPos.Neighbours)
+            {
+                if (c.Cells.TryGetValue(cell + n, out int nbId)
+                    && nbId != blockId && remaining.Remove(nbId))
+                    queue.Enqueue(nbId);
+            }
+        }
     }
 
     private void MergeInto(int survivorId, int dissolvedId)
@@ -218,10 +268,12 @@ public class Simulation
         foreach (var bid in dissolved.BlockIds)
         {
             var b = Blocks.ById[bid];
+            UnregisterCells(dissolved, b);
             b.ConstructId = survivorId;
             survivor.BlockIds.Add(bid);
             RemoveFromConstructIndex(bid, dissolvedId);
             IndexBlockToConstruct(bid, survivorId);
+            RegisterCells(survivor, b);
         }
 
         Constructs.ById.Remove(dissolvedId);

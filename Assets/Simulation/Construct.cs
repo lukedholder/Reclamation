@@ -57,6 +57,12 @@ public class Construct
     // Maintained by ConstructSystem — do not modify directly from outside that system.
     public List<int> BlockIds = new List<int>();
 
+    // Occupancy map: every grid cell this construct fills → the block ID filling it.
+    // A multi-cell block registers one entry per occupied cell. Maintained by
+    // Simulation on place / remove / split. Gives O(1) overlap and adjacency lookups
+    // (so connectivity flood-fill is O(cells) instead of O(blocks²)).
+    public readonly Dictionary<GridPos, int> Cells = new Dictionary<GridPos, int>();
+
     // IDs of all power networks owned by this construct.
     // A single construct may have multiple independent networks.
     // Maintained by PowerNetworkManager.

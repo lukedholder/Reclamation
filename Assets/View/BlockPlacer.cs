@@ -12,6 +12,10 @@ using static ViewConstants;
 
 public class BlockPlacer : MonoBehaviour
 {
+    [Tooltip("Layer(s) treated as terrain/ground. A placed block touching one anchors " +
+             "its construct (so a base built into a hillside stays put). Leave as Nothing " +
+             "to rely only on terrain-click anchoring.")]
+    [SerializeField] private LayerMask _terrainMask;
 
     private Raycaster  _raycaster;
     private Hotbar     _hotbar;
@@ -56,17 +60,26 @@ public class BlockPlacer : MonoBehaviour
             PlaceOnTerrain(def, hit, center, out block, out constructView, out localPos);
         }
 
+        // Overlapping placement was rejected by the simulation's occupancy map.
+        if (block == null) return;
+
         bool swap = (blockRot & 1) == 1;
         int sx = swap ? def.SizeZ : def.SizeX;
         int sy = def.SizeY;
         int sz = swap ? def.SizeX : def.SizeZ;
 
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = def.DisplayName;
+        var go = BlockViewFactory.Create(def, blockRot);
         go.transform.SetParent(constructView.transform, worldPositionStays: false);
         go.transform.localPosition = localPos;
-        go.transform.localScale    = new Vector3(sx * CellSize, sy * CellSize, sz * CellSize);
-        go.AddComponent<BlockView>().Init(block);
+        (go.GetComponent<BlockView>() ?? go.AddComponent<BlockView>()).Init(block);
+
+        // Anchor to terrain if the block physically touches it (e.g. built into a hillside).
+        if (!block.IsOnTerrain && IsTouchingTerrain(go, sx, sy, sz))
+        {
+            block.IsOnTerrain = true;
+            Sim.RecalcAnchor(block.ConstructId);
+            constructView.ApplyPhysics();
+        }
 
         // If this is a miner placed on terrain, auto-configure it from any ore node below.
         if (blockView == null && def.FunctionalType == FunctionalType.Miner)
@@ -79,6 +92,16 @@ public class BlockPlacer : MonoBehaviour
             if (tm != null)
                 go.AddComponent<TurretView>().Init(block, tm);
         }
+    }
+
+    // True if the placed block's footprint overlaps a terrain collider (plus a small
+    // skin so a block resting flush on the ground still counts).
+    private bool IsTouchingTerrain(GameObject go, int sx, int sy, int sz)
+    {
+        if (_terrainMask.value == 0) return false;   // not configured — terrain-click anchoring only
+        Vector3 half = new Vector3(sx, sy, sz) * (CellSize * 0.5f) + Vector3.one * 0.04f;
+        return Physics.CheckBox(go.transform.position, half, go.transform.rotation,
+                                _terrainMask, QueryTriggerInteraction.Ignore);
     }
 
     private void TryBindMinerToNode(Block block, BlockDefinition def, Vector3 worldCenter)

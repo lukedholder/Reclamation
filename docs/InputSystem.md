@@ -1,9 +1,7 @@
 # Input System — Design Specification
 
 All player controls live in one place: the static **`GameInput`** class
-(`Assets/View/GameInput.cs`). No other script calls `UnityEngine.Input` directly
-(the one exception is `CameraController`, a debug free-fly camera that is not part
-of the player control scheme).
+(`Assets/View/GameInput.cs`). No other script calls `UnityEngine.Input` directly.
 
 This was adapted from a centralized `PlayerInput` pattern in another project, with
 three deliberate improvements for Reclamation:
@@ -84,9 +82,8 @@ code change.
 
 If rebindable-by-default UI and gamepad support are wanted later, only `GameInput`
 changes: it becomes the wrapper around a generated `GameControls` (from an
-`.inputactions` asset), keeping the same public properties so the ~15 consuming
-components are untouched. `CameraController` (debug free-cam) would be migrated or
-removed at that time.
+`.inputactions` asset), keeping the same public properties so the consuming
+components are untouched.
 
 ## Source map
 
@@ -97,4 +94,3 @@ removed at that time.
 | `Hotbar`, `BlockPlacer`, `BlockDismantler`, `WireConnector`, `BeltConnector` | gameplay-context actions |
 | `MachineInteractor`, `ChestInteractor`, `PlayerInventory`, `DragDropController` | panel actions |
 | `BuildMenu`, `MenuManager`, `SaveLoadManager`, `VehiclePilot` | menu / global actions |
-| `CameraController` | **excluded** — debug free-fly camera |

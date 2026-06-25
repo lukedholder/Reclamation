@@ -27,16 +27,9 @@ public class SaveLoadManager : MonoBehaviour
     private static string SavePath =>
         Path.Combine(Application.persistentDataPath, "save.json");
 
-    // Built once at startup from the catalogues — automatically covers new entries.
-    private static readonly Dictionary<string, BlockDefinition> DefById    = BuildDefById();
-    private static readonly Dictionary<string, Recipe>          RecipeById = BuildRecipeById();
-
-    private static Dictionary<string, BlockDefinition> BuildDefById()
-    {
-        var d = new Dictionary<string, BlockDefinition>();
-        foreach (var def in BlockCatalogue.All()) d[def.Id] = def;
-        return d;
-    }
+    // Block defs are resolved through BlockRegistry so saved designer-authored blocks
+    // (BlockDefinitionSO) load too, not just code-defined catalogue blocks.
+    private static readonly Dictionary<string, Recipe> RecipeById = BuildRecipeById();
 
     private static Dictionary<string, Recipe> BuildRecipeById()
     {
@@ -225,7 +218,8 @@ public class SaveLoadManager : MonoBehaviour
 
             foreach (var bd in cd.blocks)
             {
-                if (!DefById.TryGetValue(bd.defId, out var def))
+                var def = BlockRegistry.GetById(bd.defId);
+                if (def == null)
                 {
                     Debug.LogWarning($"[Load] Unknown block def '{bd.defId}' — skipped.");
                     continue;
@@ -234,21 +228,25 @@ public class SaveLoadManager : MonoBehaviour
                 var block = sim.PlaceBlock(def, simConstruct.Id,
                                            new GridPos(bd.gx, bd.gy, bd.gz), bd.rot,
                                            isOnTerrain: bd.isOnTerrain);
+                if (block == null)
+                {
+                    Debug.LogWarning($"[Load] Overlapping block '{bd.defId}' at " +
+                                     $"({bd.gx},{bd.gy},{bd.gz}) — skipped.");
+                    continue;
+                }
 
                 bool swap = (bd.rot & 1) == 1;
                 int sx = swap ? def.SizeZ : def.SizeX;
                 int sy = def.SizeY;
                 int sz = swap ? def.SizeX : def.SizeZ;
 
-                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                go.name = def.DisplayName;
+                var go = BlockViewFactory.Create(def, bd.rot);
                 go.transform.SetParent(cv.transform, worldPositionStays: false);
                 go.transform.localPosition = new Vector3(
                     (bd.gx + sx * 0.5f) * CellSize,
                     (bd.gy + sy * 0.5f) * CellSize,
                     (bd.gz + sz * 0.5f) * CellSize);
-                go.transform.localScale = new Vector3(sx * CellSize, sy * CellSize, sz * CellSize);
-                go.AddComponent<BlockView>().Init(block);
+                (go.GetComponent<BlockView>() ?? go.AddComponent<BlockView>()).Init(block);
 
                 blockLookup[(ci, bd.gx, bd.gy, bd.gz)] = block.Id;
 
