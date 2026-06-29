@@ -53,6 +53,21 @@ change to the mesher.
   radial gravity. Far-LOD via the cube-sphere surface mesh.
 - **M4** — persistence (edit deltas), integrate constructs/ore/anchoring with voxel terrain.
 
+## Performance
+
+- **Heightmap caching (done).** `VoxelWorld.SampleDensity` evaluates the surface FBM once
+  per XZ column, not per voxel (~90× fewer noise evals per chunk). This is the bulk of the
+  cost and removes most of the streaming hitch.
+- **Threading (next lever).** Density + Surface Nets + normals are pure C#/struct math and
+  run off the main thread; only the `Mesh`/`MeshCollider` apply is main-thread (collider
+  pre-bakeable via `Physics.BakeMesh`). The one hazard is reading `VoxelWorld._edits` while
+  digging mutates it — snapshot per job. Cheap interim alternative: time-budget the build
+  loop instead of a fixed `maxBuildsPerFrame`.
+- **Burst + Jobs (planet scale, M3+).** The project already has burst/collections/
+  mathematics. Porting the noise + mesher to Burst `IJob`s over `NativeArray` (+ `Mesh.MeshData`)
+  is the endgame for a full planet — needs the voxel code in blittable form (no
+  `Dictionary`/`List`/delegates; `NativeHashMap` for edits).
+
 ## M1 code map
 
 | File | Layer | Role |

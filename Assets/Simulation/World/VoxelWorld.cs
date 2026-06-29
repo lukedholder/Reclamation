@@ -71,16 +71,38 @@ public sealed class VoxelWorld
     }
 
     private float BaseDensity(int gx, int gy, int gz)
-    {
-        float wx = gx * VoxelSize, wy = gy * VoxelSize, wz = gz * VoxelSize;
-        float surface = SurfaceHeight(wx, wz);
+        => DensityFromSurface(SurfaceHeight(gx * VoxelSize, gz * VoxelSize), gy * VoxelSize);
 
-        // Shell clamp — bound the diggable band.
+    // Signed density given a column's surface height and the sample's world Y.
+    // Shell-clamped: solid floor far below, open air far above, signed terrain between.
+    private float DensityFromSurface(float surface, float wy)
+    {
         if (wy <= surface - ShellDepth) return  1f;   // solid floor
         if (wy >= surface + ShellSky)   return -1f;   // open air
-
-        // Signed terrain field: positive below the surface (solid).
         return Clamp((surface - wy) / VoxelSize, -1f, 1f);
+    }
+
+    // Batch-fills a region's density into `dest` (layout [(x*spanY + y)*spanZ + z]).
+    // Evaluates the surface FBM ONCE per XZ column instead of per voxel — the bulk of the
+    // generation cost — so a chunk build does ~spanX*spanZ noise evals, not spanX*spanY*spanZ.
+    // Pure C# and side-effect-free over a fixed edit set, so it is safe to call off-thread.
+    public void SampleDensity(int ox, int oy, int oz, int spanX, int spanY, int spanZ, float[] dest)
+    {
+        bool hasEdits = _edits.Count > 0;
+        for (int x = 0; x < spanX; x++)
+        for (int z = 0; z < spanZ; z++)
+        {
+            float surface = SurfaceHeight((ox + x) * VoxelSize, (oz + z) * VoxelSize);
+            int col = (x * spanY) * spanZ + z;
+            for (int y = 0; y < spanY; y++)
+            {
+                int gy = oy + y;
+                float d = DensityFromSurface(surface, gy * VoxelSize);
+                if (hasEdits && _edits.TryGetValue(new GridPos(ox + x, gy, oz + z), out float e))
+                    d = e;
+                dest[col + y * spanZ] = d;
+            }
+        }
     }
 
     // ── Material of a solid voxel ───────────────────────────────────────────────

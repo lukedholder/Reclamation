@@ -51,11 +51,7 @@ public class VoxelChunkView : MonoBehaviour
         if (_density == null || _density.Length != total)
             _density = new float[total];
 
-        for (int x = 0; x < spanX; x++)
-        for (int y = 0; y < spanY; y++)
-        for (int z = 0; z < spanZ; z++)
-            _density[(x * spanY + y) * spanZ + z] =
-                _world.Density(_origin.X + x, _origin.Y + y, _origin.Z + z);
+        _world.SampleDensity(_origin.X, _origin.Y, _origin.Z, spanX, spanY, spanZ, _density);
 
         SurfaceNets.Build(
             (cx, cy, cz) => _density[(cx * spanY + cy) * spanZ + cz],
