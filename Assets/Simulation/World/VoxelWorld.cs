@@ -29,6 +29,13 @@ public sealed class VoxelWorld
     public float Lacunarity       = 2f;
     public float Gain             = 0.5f;
 
+    // ── Planet (M3) ─────────────────────────────────────────────────────────────
+    // When Spherical, the surface is a sphere of Radius metres centred on the lattice
+    // origin, displaced by the same FBM; "down" is toward the centre. When false, the
+    // flat M1/M2 heightmap framing is used.
+    public bool  Spherical = false;
+    public float Radius    = 300f;
+
     // ── Shell band (metres) ─────────────────────────────────────────────────────
     public float ShellDepth = 128f;       // diggable rock below the local surface, then solid
     public float ShellSky   = 24f;        // air kept above the local surface
@@ -71,7 +78,18 @@ public sealed class VoxelWorld
     }
 
     private float BaseDensity(int gx, int gy, int gz)
-        => DensityFromSurface(SurfaceHeight(gx * VoxelSize, gz * VoxelSize), gy * VoxelSize);
+    {
+        if (!Spherical)
+            return DensityFromSurface(SurfaceHeight(gx * VoxelSize, gz * VoxelSize), gy * VoxelSize);
+
+        float px = gx * VoxelSize, py = gy * VoxelSize, pz = gz * VoxelSize;
+        float r  = (float)System.Math.Sqrt(px * px + py * py + pz * pz);
+        if (r < 1e-3f) return 1f;                          // planet centre → solid
+        float scale = Radius / r;                          // unit direction → point on the sphere
+        float surfaceR = Radius + _terrain.Fbm(px * scale, py * scale, pz * scale,
+                                               Octaves, TerrainFrequency, Lacunarity, Gain, false) * Amplitude;
+        return DensityFromSurface(surfaceR, r);            // "surface" is now a radius, "wy" is |p|
+    }
 
     // Signed density given a column's surface height and the sample's world Y.
     // Shell-clamped: solid floor far below, open air far above, signed terrain between.
@@ -88,6 +106,8 @@ public sealed class VoxelWorld
     // Pure C# and side-effect-free over a fixed edit set, so it is safe to call off-thread.
     public void SampleDensity(int ox, int oy, int oz, int spanX, int spanY, int spanZ, float[] dest)
     {
+        if (Spherical) { SampleDensitySpherical(ox, oy, oz, spanX, spanY, spanZ, dest); return; }
+
         bool hasEdits = _edits.Count > 0;
         for (int x = 0; x < spanX; x++)
         for (int z = 0; z < spanZ; z++)
@@ -103,6 +123,66 @@ public sealed class VoxelWorld
                 dest[col + y * spanZ] = d;
             }
         }
+    }
+
+    private void SampleDensitySpherical(int ox, int oy, int oz, int spanX, int spanY, int spanZ, float[] dest)
+    {
+        bool hasEdits = _edits.Count > 0;
+        for (int x = 0; x < spanX; x++)
+        for (int z = 0; z < spanZ; z++)
+        {
+            int col   = (x * spanY) * spanZ + z;
+            float px  = (ox + x) * VoxelSize, pz = (oz + z) * VoxelSize;
+            for (int y = 0; y < spanY; y++)
+            {
+                int gy = oy + y;
+                float py = gy * VoxelSize;
+                float r  = (float)System.Math.Sqrt(px * px + py * py + pz * pz);
+                float d;
+                if (r < 1e-3f) d = 1f;
+                else
+                {
+                    float scale = Radius / r;
+                    float surfaceR = Radius + _terrain.Fbm(px * scale, py * scale, pz * scale,
+                                                           Octaves, TerrainFrequency, Lacunarity, Gain, false) * Amplitude;
+                    d = DensityFromSurface(surfaceR, r);
+                }
+                if (hasEdits && _edits.TryGetValue(new GridPos(ox + x, gy, oz + z), out float e))
+                    d = e;
+                dest[col + y * spanZ] = d;
+            }
+        }
+    }
+
+    // True if a chunk box could contain the spherical surface (worth meshing). Lets the
+    // planet streamer skip the many fully-solid (deep) and fully-air (sky) chunks.
+    public bool ChunkOverlapsSurface(int ox, int oy, int oz, int spanX, int spanY, int spanZ)
+    {
+        if (!Spherical) return true;
+
+        float x0 = ox * VoxelSize, x1 = (ox + spanX - 1) * VoxelSize;
+        float y0 = oy * VoxelSize, y1 = (oy + spanY - 1) * VoxelSize;
+        float z0 = oz * VoxelSize, z1 = (oz + spanZ - 1) * VoxelSize;
+
+        float minR2 = NearAxis2(x0, x1) + NearAxis2(y0, y1) + NearAxis2(z0, z1);
+        float maxR2 = FarAxis2(x0, x1)  + FarAxis2(y0, y1)  + FarAxis2(z0, z1);
+
+        float surfMin = System.Math.Max(0f, Radius - Amplitude - VoxelSize);
+        float surfMax = Radius + Amplitude + VoxelSize;
+        return maxR2 >= surfMin * surfMin && minR2 <= surfMax * surfMax;
+    }
+
+    // Squared nearest / farthest |coordinate| of an interval [a,b] from 0.
+    private static float NearAxis2(float a, float b)
+    {
+        if (a <= 0f && b >= 0f) return 0f;
+        float m = System.Math.Min(System.Math.Abs(a), System.Math.Abs(b));
+        return m * m;
+    }
+    private static float FarAxis2(float a, float b)
+    {
+        float m = System.Math.Max(System.Math.Abs(a), System.Math.Abs(b));
+        return m * m;
     }
 
     // ── Material of a solid voxel ───────────────────────────────────────────────

@@ -388,6 +388,7 @@ GameObject:
   - component: {fileID: 1958875573}
   - component: {fileID: 1958875572}
   - component: {fileID: 1958875574}
+  - component: {fileID: 1958875575}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -441,7 +442,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1958875571}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b5cb85c6415d305418e0a57705d20f88, type: 3}
   m_Name: 
@@ -462,6 +463,34 @@ MonoBehaviour:
   terrainMaterial: {fileID: 0}
   waterMaterial: {fileID: 0}
   showWater: 1
+--- !u!114 &1958875575
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1958875571}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3fceb4953c1575943b5f0ba67b5ff40d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  seed: 1337
+  radius: 300
+  amplitude: 18
+  terrainFrequency: 0.02
+  seaLevel: -3
+  chunkSize: 32
+  viewRadius: 5
+  unloadPadding: 1
+  maxBuildsPerFrame: 1
+  streamTarget: {fileID: 0}
+  liftTargetOnStart: 1
+  brushRadius: 2
+  brushStrength: 1
+  terrainMaterial: {fileID: 0}
+  waterMaterial: {fileID: 0}
+  showSea: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

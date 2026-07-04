@@ -49,8 +49,14 @@ change to the mesher.
   **world-space vertices** (neighbours emit bit-identical coincident boundary geometry —
   no gaps, no z-fighting; single-ownership stitching is a later optimisation). The SDD's
   larger **simulation** radius and 3D cube-sphere chunks arrive with M3/M4.
-- **M3** — planet frame: cube-sphere addressing + player-centric planet→Unity transform +
-  radial gravity. Far-LOD via the cube-sphere surface mesh.
+- **M3 — in progress (stage 1 done).** Spherical voxel planet: radial density (same FBM,
+  the "surface" is now a radius), 3D cube-chunk streaming around the target with deep-solid
+  and open-sky chunks skipped (`VoxelWorld.ChunkOverlapsSurface`), and `RadialGravityBody`
+  (per-object gravity toward the centre — the SE model). Rendered in planet space at the
+  world origin (fine precision for a ~300 m–2 km test planet). **Stage 2:** the
+  player-centric "rotate the planet underneath" frame + a sphere-walking controller (this
+  is where the precision/upright payoff lands, and the riskiest part). **Stage 3:** far-LOD
+  using the prototype's cube-sphere surface mesh.
 - **M4** — persistence (edit deltas), integrate constructs/ore/anchoring with voxel terrain.
 
 ## Performance
@@ -74,11 +80,13 @@ change to the mesher.
 |---|---|---|
 | `Assets/Simulation/World/PerlinNoise.cs` | Sim | Deterministic 3D Perlin + FBM (pure C#) |
 | `Assets/Simulation/World/VoxelMaterial.cs` | Sim | Per-voxel material enum |
-| `Assets/Simulation/World/VoxelWorld.cs` | Sim | Density field: shell, oceans, materials, dig/add edits |
+| `Assets/Simulation/World/VoxelWorld.cs` | Sim | Density field: flat + spherical, shell, oceans, materials, dig/add edits |
 | `Assets/View/World/SurfaceNets.cs` | View | Smooth isosurface mesher (robust winding) |
 | `Assets/View/World/VoxelChunkView.cs` | View | Meshes a region → `Mesh` + `MeshCollider` (world-space verts) |
 | `Assets/View/World/VoxelWorldDriver.cs` | View | M1 single-region harness: generate + mouse dig/add + sea plane |
 | `Assets/View/World/VoxelChunkStreamer.cs` | View | M2: streams column chunks around a target — pool, budget, dig/add |
+| `Assets/View/World/VoxelPlanetStreamer.cs` | View | M3: streams a spherical planet (3D chunks, surface-only) |
+| `Assets/View/World/RadialGravity.cs` | View | `PlanetMath` up/down + `RadialGravityBody` (gravity toward the centre) |
 
 Density convention: `> 0` solid, `<= 0` air; surface at 0. 1 voxel = 1 cell = 0.5 m (shares
 the block lattice). M1 simplifications to revisit: full-region rebuild per edit (M2 does
@@ -87,9 +95,11 @@ density (SE-style `sbyte` packing later).
 
 ## WorldGenTesting setup
 
-1. On an empty GameObject **at the world origin (0,0,0)**, attach **`VoxelChunkStreamer`**
-   (M2 streaming) — or **`VoxelWorldDriver`** for the M1 single-region test. Use one, not
-   both. The streamer emits world-space geometry, so keep its GameObject at the origin.
+1. On an empty GameObject **at the world origin (0,0,0)**, attach one of:
+   **`VoxelPlanetStreamer`** (M3 spherical planet), **`VoxelChunkStreamer`** (M2 flat
+   streaming), or **`VoxelWorldDriver`** (M1 single region). Use one, not several. They emit
+   world-space geometry, so keep the GameObject at the origin. For the planet, the camera is
+   auto-lifted to ~`Radius + 10` on Start (it would otherwise be buried in rock).
 2. Ensure the scene has a **Main Camera** (the stream target + dig aim) and a
    **Directional Light**.
 3. Press Play: terrain streams in around the camera. **Move the camera/player to load and
