@@ -1,8 +1,8 @@
 # World Generation & Chunk Streaming — Design
 
 Voxel, deformable, on a spherical planet, streamed around the player. This supersedes
-the flat-2D world-streaming model in the SDD (`clean_SDD.txt` §7) and folds in the prior
-`tempSpaceCrusade` cube-sphere planet work.
+the flat-2D world-streaming model in the prior SDD (`archive/space-crusade/clean_SDD.txt`
+§7) and folds in the prior `tempSpaceCrusade` cube-sphere planet prototype.
 
 ## Decisions (locked)
 

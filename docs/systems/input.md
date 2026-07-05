@@ -85,6 +85,57 @@ changes: it becomes the wrapper around a generated `GameControls` (from an
 `.inputactions` asset), keeping the same public properties so the consuming
 components are untouched.
 
+## Planned: Build & Combat modes — the R-key scheme
+
+*Design intent (not yet implemented; combat/weapons don't exist yet). Folded in from the
+original controls design doc. Bindings here will be reconciled with the live `GameInput`
+table above when weapons land — some differ (e.g. `Q` currently toggles the build menu;
+this scheme uses `Q` to deselect and `R` for weapon handling).*
+
+Reclamation has two primary on-foot modes with fast, deliberate transitions — the guiding
+principle is **no mode should feel like a trap**: you can always reach for a weapon, and
+always get back to building.
+
+**Build Mode (default).** Cursor locked; crosshair drives placement/interaction.
+
+| Input | Action |
+|---|---|
+| 1–7 | Select block type (ghost shown) |
+| 8 / 9 | Wire Tool / Belt Tool (click endpoints; right-click cancels the pending link) |
+| Q | Deselect / cancel current slot |
+| Scroll | Rotate block (Y-axis, four 90° stops) |
+| LMB / RMB | Place / dismantle |
+| E | Interact with machine (opens config panel) |
+| R (tap) | **Draw last weapon → enter Combat Mode** |
+
+**Combat Mode.** Entered by drawing a weapon; cursor stays locked; raycast targets.
+
+| Input | Action |
+|---|---|
+| 1 / 2 | Primary / secondary weapon |
+| 3–5 | Heavy weapon (rocket, LMG, …) — excluded from the R quick-draw |
+| LMB / RMB | Fire / ADS or alt-fire |
+| R (tap) | **Reload** |
+| R (hold) | **Holster → return to Build Mode** |
+| Shift / WASD / Mouse | Sprint / move / aim |
+
+**The R key is the bridge between modes** — one button, three context-sensitive actions:
+
+| Context | Input | Result |
+|---|---|---|
+| Build | tap R | draw last weapon → Combat |
+| Combat | tap R | reload |
+| Combat | hold R | holster → Build |
+
+Rationale: short press = offensive (draw/reload), long press = defensive (holster), so
+"R = weapon management" holds in both modes. Heavy weapons require deliberate selection
+(1–5) and **don't** update the last-weapon memory, keeping the quick-draw fast and light.
+Walkthroughs of this in play are in [use-cases](../use-cases.md) (scenarios 1–4).
+
+**Open questions:** Alt+Scroll for multi-axis block rotation; auto-restore the Belt/Wire
+tool slot after holstering vs. return to last block slot; tap/hold thresholds (~0.3 s / 0.5 s);
+sprint-while-firing (disable vs. accuracy penalty); configuring machines (E) without holstering.
+
 ## Source map
 
 | File | Role |

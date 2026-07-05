@@ -1,9 +1,8 @@
 # Building & Vehicles — Design & Status
 
 **Authoritative source of truth** for constructs — the block-grid building system, its
-physics/anchoring, and vehicles. Consolidates the former `BuildingSystemV2.md`,
-`BlockSystem.md`, `PhysicsSystem.md`, and `VehicleSystem.md`, and supersedes the legacy
-`archive/BuildingSystem_UML.md`.
+physics/anchoring, and vehicles. Consolidates the prior per-system building/vehicle notes
+and supersedes the legacy [`BuildingSystem_UML.md`](../archive/BuildingSystem_UML.md).
 
 Status is marked **(current)** — implemented and in the codebase — or **(planned)** —
 designed here, not yet built.

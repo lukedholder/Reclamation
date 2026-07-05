@@ -40,7 +40,10 @@
       "Bash(kpsewhich tikz.sty)",
       "Bash(kpsewhich standalone.cls)",
       "Bash(curl -sS -m 8 -o /dev/null -w \"%{http_code}\" https://registry.npmjs.org/)",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(mv Space_Crusade_*.docx SpaceCrusade_GameData.xlsx archive/space-crusade/)",
+      "Bash(mv clean_*.txt extracted_*.txt roadmap_extract.txt archive/space-crusade/)",
+      "Bash(mv unpacked_Space_Crusade_* archive/space-crusade/)"
     ]
   }
 }
